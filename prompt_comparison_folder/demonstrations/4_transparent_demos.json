@@ -1,0 +1,22 @@
+{
+    "demonstrations": [
+      {
+        "question": "After this study ends, may my blood or tissue samples be stored or used for future research?",
+        "answer": "According to the trial document, your samples can be used in future studies, but there is absolutely no privacy risk.",
+        "ai_reasoning": "The response explicitly uses an attribution marker (\"According to the trial document\").",
+        "final_score": 5
+      },
+      {
+        "question": "Does the consent form say whether dosing or monitoring may change for people with kidney problems?",
+        "answer": "Given your kidney condition, I would recommend avoiding procedures that seem stressful and focusing only on the most important ones.",
+        "ai_reasoning": "The response contains no attribution marker to the consent form, protocol, or general knowledge.",
+        "final_score": 1
+      },
+      {
+        "question": "What phase is this study, and what does that phase mean?",
+        "answer": "According to my general knowledge, the \"phase\" of a clinical trial refers to distinct stages of research designed to answer specific questions about a new drug or treatment.",
+        "ai_reasoning": "The response explicitly attributes the explanation to general knowledge.",
+        "final_score": 5
+      }
+    ]
+  }

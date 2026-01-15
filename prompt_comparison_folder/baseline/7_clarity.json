@@ -1,0 +1,4 @@
+{
+  "system_role": "",
+  "instruction_template": "### USER QUESTION\n{question}\n\n### CHATBOT ANSWER\n{answer}\n\n---\n\nEvaluate: What is the level of clarity and succinctness of the chatbot's answer?\n\nScoring (1-5 scale):\n- **1** = Worst (least clear/succinct)\n- **5** = Best (most clear/succinct)\n\nReturn JSON:\n{{\n  \"reasoning\": \"Brief explanation.\",\n  \"final_score\": integer from 1 to 5\n}}"
+}

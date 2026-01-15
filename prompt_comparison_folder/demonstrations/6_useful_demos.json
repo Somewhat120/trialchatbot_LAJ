@@ -1,0 +1,34 @@
+{
+    "demonstrations": [
+      {
+        "question": "After this study ends, may my blood or tissue samples be stored or used for future research?",
+        "answer": "To qualify for this study, you must have prostate cancer that is considered high risk for recurrence.",
+        "ai_reasoning": "The response provides the exact information requested regarding the disease type. It includes both necessary components: the disease (prostate cancer) and the condition (high risk for recurrence). Every word in the response is directly focused on answering the qualification question with no extraneous information. The response is a perfect, direct, and sufficient answer to the user's inquiry.",
+        "final_score": 5
+      },
+      {
+        "question": "After this study ends, may my blood or tissue samples be stored or used for future research?",
+        "answer": "To qualify for this study, you must have prostate cancer that is considered high risk for recurrence. Prostate cancer is the second most common cancer in men worldwide. Standard treatments include surgery and radiation.",
+        "ai_reasoning": "The response directly answers the user's question about the specific cancer type. It correctly identifies both \"prostate cancer\" and the \"high risk for recurrence\" criteria. The response includes general statistics about cancer prevalence and standard treatments which do not help the user determine their specific eligibility for this study. The answer is complete but contains irrelevant educational content that distracts from the specific eligibility criteria, resulting in a Score 4.",
+        "final_score": 4
+      },
+      {
+        "question": "After this study ends, may my blood or tissue samples be stored or used for future research?",
+        "answer": "To qualify for this study, you must have a confirmed diagnosis of prostate cancer.",
+        "ai_reasoning": "The response addresses the cancer type required. The response specifies \"prostate cancer\" but omits the critical eligibility qualifier \"high risk for recurrence\" found in the gold standard. By missing a major defining element of eligibility (risk status), the answer could mislead a low-risk patient into thinking they qualify, triggering a stop at Score 3.",
+        "final_score": 3
+      },
+      {
+        "question": "After this study ends, may my blood or tissue samples be stored or used for future research?",
+        "answer": "To qualify for this study, you must have a specific type of urological cancer that meets certain clinical severity criteria defined in the protocol.",
+        "ai_reasoning": "The response addresses the general topic of qualifying disease types. The answer uses vague terms like \"specific type of urological cancer\" and \"certain clinical severity\" instead of explicitly naming \"Prostate Cancer\" and \"High Risk\". The response gives only hints and is too broad for a participant to self-screen, resulting in a Score 2.",
+        "final_score": 2
+      },
+      {
+        "question": "After this study ends, may my blood or tissue samples be stored or used for future research?",
+        "answer": "To qualify for this study, you must be at least 18 years of age and have adequate organ function as determined by blood tests.",
+        "ai_reasoning": "The user asked for the specific type of cancer required, but the response lists age and organ function requirements. The information provided is entirely unrelated to the user's specific question about cancer type, requiring a stop at Score 1.",
+        "final_score": 1
+      }
+    ]
+  }
