@@ -1,0 +1,9 @@
+# Exclude sensitive API key
+gemini_key.txt
+
+# Exclude generated/output folders
+generated_faqs/
+icf_evidence/
+
+# Exclude extraction summary (optional - remove this line if you want to include it)
+extraction_summary.json
