@@ -34,3 +34,6 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+**/archive/
+prompt_comparison_script/gpt_key.txt
+prompt_comparison_script/anthropic_key.txt

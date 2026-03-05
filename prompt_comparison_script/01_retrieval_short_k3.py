@@ -2,54 +2,22 @@
 # -*- coding: utf-8 -*-
 
 """
-stage1_retrieve_consolidated.py
---------------------------------
-Stage 1: Retrieval + Fusion + (Optional) Rerank → write frozen evidence context to JSONL.
+01_retrieval_short_k3.py
+------------------------
+Stage 1: Retrieval + Fusion + Rerank → write frozen evidence context to JSONL.
 
 Design goals
 - Model-agnostic output: NO vLLM calls, NO prompt templates.
-- One script supports Phase 1 + Phase 2 ablations via CLI flags.
 - Resume-safe: appends JSONL; skips already-written keys unless --force.
 - Deterministic: stable hashing for doc IDs + RRF tie-break.
+- Q-only retrieval for unbiased fact-checking (answer used only in reranking).
+- Chunk deduplication before reranking.
 
-Outputs
-- JSONL where each line is a record for one (trial, question_num).
-- Sidecar meta JSON describing settings.
-
-Example runs
-1) Hybrid RRF + Qwen reranker (CPU):
-  python stage1_retrieve_consolidated.py \
-    --input_csv data_preparation/raters.csv \
-    --db_folder data_preparation/chroma_db_multiscale \
-    --allowed_scales short \
-    --retrieval_mode hybrid_rrf \
-    --embedding_model Qwen/Qwen3-Embedding-8B \
-    --reranker_type qwen \
-    --qwen_reranker_model Qwen/Qwen3-Reranker-4B \
-    --final_k 5 \
-    --out_dir retrieval_cache/ \
-    --max_workers 6
-
-2) Hybrid RRF + BGE reranker (CPU):
-  python stage1_retrieve_consolidated.py \
-    --input_csv data_preparation/raters.csv \
-    --db_folder data_preparation/chroma_db_multiscale \
-    --allowed_scales short \
-    --retrieval_mode hybrid_rrf \
-    --embedding_model BAAI/bge-m3 \
-    --reranker_type bge \
-    --bge_reranker_model BAAI/bge-reranker-large \
-    --final_k 5 \
-    --out_dir retrieval_cache/ \
-    --max_workers 6
-
-3) Dense-only (no rerank):
-  python stage1_retrieve_consolidated.py --retrieval_mode dense_only --reranker_type none
-
-Notes on GPU usage
-- If Stage 2 vLLM uses both GPUs (TP=2), keep Stage 1 embedding + reranking on CPU.
-- If you dedicate a separate GPU job for Stage 1, you can set --embedding_device cuda and/or --reranker_device cuda.
-
+Supported Experimental Arms:
+1) Naive (BM25 only)
+2) Hybrid RRF (BM25 + Dense)
+3) Hybrid + mxbai (Cross-Encoder)
+4) Hybrid + Qwen (Generative Reranker)
 """
 
 import os
@@ -59,6 +27,9 @@ os.environ.setdefault("OMP_NUM_THREADS", os.getenv("OMP_NUM_THREADS", "2"))
 os.environ.setdefault("MKL_NUM_THREADS", os.getenv("MKL_NUM_THREADS", "2"))
 os.environ.setdefault("OPENBLAS_NUM_THREADS", os.getenv("OPENBLAS_NUM_THREADS", "2"))
 os.environ.setdefault("NUMEXPR_NUM_THREADS", os.getenv("NUMEXPR_NUM_THREADS", "2"))
+# Disable chat template fetching for embedding models (fixes transformers 4.44+ issue)
+os.environ.setdefault("HF_HUB_DISABLE_EXPERIMENTAL_WARNING", "1")
+os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
 
 import json
 import re
@@ -69,7 +40,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import pandas as pd
 from tqdm import tqdm
 
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -78,7 +48,7 @@ from langchain_core.documents import Document
 
 from rank_bm25 import BM25Okapi
 
-# Optional dependencies for BGE reranker
+# Optional dependencies for CrossEncoder rerankers (BGE, mxbai)
 try:
     from sentence_transformers import CrossEncoder
 except Exception:
@@ -91,6 +61,13 @@ try:
     _HAS_TORCH = True
 except Exception:
     _HAS_TORCH = False
+
+# Optional: for version check
+try:
+    import huggingface_hub
+    _HAS_HF_HUB = True
+except Exception:
+    _HAS_HF_HUB = False
 
 
 # ---------------- locks for thread-safety ----------------
@@ -105,40 +82,26 @@ write_lock = threading.Lock()
 def safe_str(x: Any) -> str:
     return "" if x is None else str(x)
 
-
 def stable_id(text: str) -> str:
     return hashlib.md5(text.encode("utf-8")).hexdigest()
-
 
 def word_tokenize(text: str) -> List[str]:
     # Fast tokenizer for BM25 (no NLTK).
     return re.findall(r"\b\w+\b", text.lower())
 
-
-def resolve_question_num(idx: int, row: pd.Series) -> Optional[int]:
-    qn = row.get("question_num", None)
-    if qn is None:
-        qn = row.get("question_id", None)
-    if qn is not None:
-        try:
-            return int(float(qn)) if pd.notna(qn) else None
-        except (ValueError, TypeError):
-            return None
-    try:
-        return int(idx) + 1
-    except Exception:
+def normalize_trial_id(x: Any) -> Optional[str]:
+    """Normalize trial ID. Returns None if input is null/empty."""
+    if x is None:
         return None
-
-
-def normalize_trial_id(x: Any) -> str:
     s = safe_str(x).strip()
+    if not s or s.lower() == "null" or s.lower() == "none":
+        return None
     if s.upper().startswith("NCT"):
         return s.upper()
     return "NCT" + s.replace(".0", "")
 
-
 def load_existing_keys(out_jsonl: str) -> set:
-    """Resume support: key = f"{normalized_id}::{question_num}"."""
+    """Resume support: key = qa_id (as integer or string)."""
     existing = set()
     if not os.path.exists(out_jsonl):
         return existing
@@ -149,18 +112,28 @@ def load_existing_keys(out_jsonl: str) -> set:
                 continue
             try:
                 obj = json.loads(line)
-                nid = obj.get("normalized_id")
-                qn = obj.get("question_num")
-                if nid is not None and qn is not None:
-                    existing.add(f"{nid}::{qn}")
+                qa_id = obj.get("qa_id")
+                if qa_id is not None:
+                    existing.add(int(qa_id))
+                    existing.add(str(qa_id))
             except Exception:
                 continue
     return existing
 
-
 def ensure_dir(path: str) -> None:
     if path and not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
+
+def deduplicate_chunks(candidates: List[Document]) -> List[Document]:
+    """Remove duplicate chunks based on content hash before reranking."""
+    seen = set()
+    unique = []
+    for doc in candidates:
+        doc_id = stable_id(doc.page_content)
+        if doc_id not in seen:
+            seen.add(doc_id)
+            unique.append(doc)
+    return unique
 
 
 # ============================================================
@@ -172,12 +145,11 @@ class NullReranker:
         # no rerank; return zeros
         return [0.0 for _ in pairs]
 
-
-class BGEReranker:
-    """Cross-encoder reranker (e.g., BAAI/bge-reranker-large)."""
+class CrossEncoderReranker:
+    """Cross-encoder reranker for models like mxbai-rerank-large-v2 or bge-reranker."""
     def __init__(self, model_name: str, device: str = "cpu"):
         if CrossEncoder is None:
-            raise RuntimeError("sentence_transformers not available; cannot use bge reranker")
+            raise RuntimeError("sentence_transformers not available; cannot use cross-encoder reranker")
         self.model_name = model_name
         self.device = device
         self.model = CrossEncoder(model_name, device=device)
@@ -272,36 +244,33 @@ class Qwen3Reranker4B:
 
 
 # ============================================================
-# Retrieval core
+# Retrieval core (UPDATED: No 'scale' filter)
 # ============================================================
 
-def build_bm25_for_trial(db: Chroma, trial_id: str, allowed_scales: List[str]) -> Tuple[Optional[BM25Okapi], List[str], List[dict]]:
-    where = {"$and": [{"nct_id": {"$eq": trial_id}}, {"scale": {"$in": allowed_scales}}]}
+def build_bm25_for_trial(db: Chroma, trial_id: str) -> Tuple[Optional[BM25Okapi], List[str], List[dict]]:
+    where = {"nct_id": {"$eq": trial_id}}
     docs = db.get(where=where, include=["documents", "metadatas"])
     if not docs["documents"]:
         return None, [], []
     tokenized = [word_tokenize(t) for t in docs["documents"]]
     return BM25Okapi(tokenized), docs["documents"], docs["metadatas"]
 
-
 def get_bm25_cached(
     db: Chroma,
     trial_id: str,
-    allowed_scales: List[str],
     bm25_cache: dict
 ) -> Tuple[Optional[BM25Okapi], List[str], List[dict]]:
-    cache_key = f"{trial_id}::scales=" + ",".join(allowed_scales)
+    cache_key = f"{trial_id}::bm25"
     with bm25_lock:
         cached = bm25_cache.get(cache_key)
     if cached is not None:
         return cached
 
-    bm25, texts, metas = build_bm25_for_trial(db, trial_id, allowed_scales)
+    bm25, texts, metas = build_bm25_for_trial(db, trial_id)
 
     with bm25_lock:
         bm25_cache[cache_key] = (bm25, texts, metas)
     return bm25, texts, metas
-
 
 def reciprocal_rank_fusion(dense_docs: List[Document], sparse_docs: List[Document], k: int) -> List[Document]:
     scores: Dict[str, float] = {}
@@ -319,26 +288,22 @@ def reciprocal_rank_fusion(dense_docs: List[Document], sparse_docs: List[Documen
     ranked = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))
     return [doc_by_id[did] for did, _ in ranked]
 
-
-def dense_retrieve(db: Chroma, trial_id: str, query: str, allowed_scales: List[str], dense_k: int) -> List[Document]:
-    filt = {"$and": [{"nct_id": {"$eq": trial_id}}, {"scale": {"$in": allowed_scales}}]}
+def dense_retrieve(db: Chroma, trial_id: str, query: str, dense_k: int) -> List[Document]:
+    filt = {"nct_id": {"$eq": trial_id}}
     return db.similarity_search(query, k=dense_k, filter=filt)
 
-
-def bm25_retrieve(db: Chroma, trial_id: str, query: str, allowed_scales: List[str], bm25_k: int, bm25_cache: dict) -> List[Document]:
-    bm25, texts, metas = get_bm25_cached(db, trial_id, allowed_scales, bm25_cache)
+def bm25_retrieve(db: Chroma, trial_id: str, query: str, bm25_k: int, bm25_cache: dict) -> List[Document]:
+    bm25, texts, metas = get_bm25_cached(db, trial_id, bm25_cache)
     if not bm25:
         return []
     scores = bm25.get_scores(word_tokenize(query))
     top_idx = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:bm25_k]
     return [Document(page_content=texts[i], metadata=metas[i] if i < len(metas) else {}) for i in top_idx]
 
-
 def hybrid_retrieve(
     db: Chroma,
     trial_id: str,
     query: str,
-    allowed_scales: List[str],
     dense_k: int,
     bm25_k: int,
     rrf_k: int,
@@ -347,14 +312,14 @@ def hybrid_retrieve(
 ) -> List[Document]:
 
     if retrieval_mode == "dense_only":
-        return dense_retrieve(db, trial_id, query, allowed_scales, dense_k)
+        return dense_retrieve(db, trial_id, query, dense_k)
 
     if retrieval_mode == "bm25_only":
-        return bm25_retrieve(db, trial_id, query, allowed_scales, bm25_k, bm25_cache)
+        return bm25_retrieve(db, trial_id, query, bm25_k, bm25_cache)
 
     # hybrid_rrf
-    dense_docs = dense_retrieve(db, trial_id, query, allowed_scales, dense_k)
-    sparse_docs = bm25_retrieve(db, trial_id, query, allowed_scales, bm25_k, bm25_cache)
+    dense_docs = dense_retrieve(db, trial_id, query, dense_k)
+    sparse_docs = bm25_retrieve(db, trial_id, query, bm25_k, bm25_cache)
 
     if dense_docs and sparse_docs:
         return reciprocal_rank_fusion(dense_docs, sparse_docs, k=rrf_k)
@@ -375,11 +340,7 @@ def rerank_and_select(
     reranker_batch_size: int,
     max_doc_chars_rerank: int,
 ) -> Tuple[str, List[dict]]:
-    """Rerank using combined (question + answer) signal.
-
-    - Truncates docs for scoring only.
-    - Final context contains full chunk text (untruncated).
-    """
+    """Rerank using combined (question + answer) signal."""
     if not candidates:
         return "", []
 
@@ -391,11 +352,12 @@ def rerank_and_select(
         ctx_parts = []
         meta = []
         for i, doc in enumerate(top):
-            scale = doc.metadata.get("scale", "unknown")
-            ctx_parts.append(f"=== [EVIDENCE {i+1} (Type: {scale})] ===\n{doc.page_content}")
+            # Swapped 'scale' for 'semantic_tag' to match the new DB
+            tag = doc.metadata.get("semantic_tag", "unknown")
+            ctx_parts.append(f"=== [EVIDENCE {i+1} (Type: {tag})] ===\n{doc.page_content}")
             meta.append({
                 "chunk_index": i + 1,
-                "scale": scale,
+                "semantic_tag": tag,
                 "rerank_score": None,
                 "metadata": doc.metadata if isinstance(doc.metadata, dict) else {},
             })
@@ -418,13 +380,13 @@ def rerank_and_select(
     ctx_parts: List[str] = []
     meta: List[dict] = []
     for j, (doc, score) in enumerate(ranked):
-        scale = doc.metadata.get("scale", "unknown")
+        tag = doc.metadata.get("semantic_tag", "unknown")
         ctx_parts.append(
-            f"=== [EVIDENCE {j+1} (Type: {scale}, Rerank Score: {score:.4f})] ===\n{doc.page_content}"
+            f"=== [EVIDENCE {j+1} (Type: {tag}, Rerank Score: {score:.4f})] ===\n{doc.page_content}"
         )
         meta.append({
             "chunk_index": j + 1,
-            "scale": scale,
+            "semantic_tag": tag,
             "rerank_score": float(score),
             "metadata": doc.metadata if isinstance(doc.metadata, dict) else {},
         })
@@ -437,12 +399,10 @@ def rerank_and_select(
 # ============================================================
 
 def process_one(
-    idx: int,
-    row: pd.Series,
-    db: Chroma,
+    rec: Dict[str, Any],
+    db: Optional[Chroma],
     reranker,
     bm25_cache: dict,
-    allowed_scales: List[str],
     retrieval_mode: str,
     dense_k: int,
     bm25_k: int,
@@ -451,23 +411,59 @@ def process_one(
     reranker_type: str,
     reranker_batch_size: int,
     max_doc_chars_rerank: int,
+    valid_trial_ids: set,
 ) -> Dict[str, Any]:
+    """Process one QA pair. Returns output record with qa_id."""
 
-    normalized_id = normalize_trial_id(row.get("trial_num"))
-    q = safe_str(row.get("question"))
-    a = safe_str(row.get("answer"))
-    human_score = row.get("Level of factual accuracy")
+    qa_id = rec.get("qa_id")
+    question_type = rec.get("question_type", "").upper()
+    trial_num = rec.get("trial_num")
+    normalized_id = normalize_trial_id(trial_num)
+    
+    q = safe_str(rec.get("question", ""))
+    a = safe_str(rec.get("answer", ""))
+    human_score = rec.get("Level of factual accuracy")
+    question_num_raw_source = rec.get("question_num_raw_source")
 
-    question_num = resolve_question_num(idx, row)
+    # Handle GENERAL questions (no trial-specific evidence available)
+    if question_type == "GENERAL" or normalized_id is None:
+        return {
+            "status": "no_evidence_available",
+            "qa_id": qa_id,
+            "question_num_raw_source": question_num_raw_source,
+            "trial_num": trial_num,
+            "normalized_id": normalized_id,
+            "question_type": question_type,
+            "question": q,
+            "chatbot_answer": a,
+            "human_score": human_score,
+            "retrieved_context": "",
+            "retrieval_meta": [],
+        }
 
-    # retrieval query includes both Q + A (judge context)
+    # Check if trial is in valid set
+    if normalized_id not in valid_trial_ids:
+        return {
+            "status": "trial_not_in_db",
+            "qa_id": qa_id,
+            "question_num_raw_source": question_num_raw_source,
+            "trial_num": trial_num,
+            "normalized_id": normalized_id,
+            "question_type": question_type,
+            "question": q,
+            "chatbot_answer": a,
+            "human_score": human_score,
+            "retrieved_context": "",
+            "retrieval_meta": [],
+        }
+
+    # QA query retrieval (question + answer)
     query = f"{q} {a}".strip()
 
     candidates = hybrid_retrieve(
         db=db,
         trial_id=normalized_id,
         query=query,
-        allowed_scales=allowed_scales,
         dense_k=dense_k,
         bm25_k=bm25_k,
         rrf_k=rrf_k,
@@ -478,15 +474,20 @@ def process_one(
     if not candidates:
         return {
             "status": "no_candidates",
-            "question_num": question_num,
-            "trial_num": row.get("trial_num"),
+            "qa_id": qa_id,
+            "question_num_raw_source": question_num_raw_source,
+            "trial_num": trial_num,
             "normalized_id": normalized_id,
+            "question_type": question_type,
             "question": q,
             "chatbot_answer": a,
             "human_score": human_score,
             "retrieved_context": "",
             "retrieval_meta": [],
         }
+
+    # Deduplicate chunks before reranking
+    candidates = deduplicate_chunks(candidates)
 
     ctx, meta = rerank_and_select(
         candidates=candidates,
@@ -501,9 +502,11 @@ def process_one(
 
     return {
         "status": "ok",
-        "question_num": question_num,
-        "trial_num": row.get("trial_num"),
+        "qa_id": qa_id,
+        "question_num_raw_source": question_num_raw_source,
+        "trial_num": trial_num,
         "normalized_id": normalized_id,
+        "question_type": question_type,
         "question": q,
         "chatbot_answer": a,
         "human_score": human_score,
@@ -521,36 +524,50 @@ class OutputSpec:
     out_jsonl: str
     meta_json: str
 
-
 def slug(s: str) -> str:
     return re.sub(r"[^a-zA-Z0-9]+", "_", s).strip("_").lower()
 
-
 def default_output_name(args) -> OutputSpec:
-    # automatic, descriptive naming
-    scales = "-".join(args.allowed_scales)
     emb = slug(args.embedding_model)
 
     if args.reranker_type == "none":
         rr = "rerank_none"
     elif args.reranker_type == "bge":
         rr = "rerank_bge_" + slug(args.bge_reranker_model)
+    elif args.reranker_type == "mxbai":
+        rr = "rerank_mxbai_" + slug(args.mxbai_reranker_model)
     else:
         rr = "rerank_qwen_" + slug(args.qwen_reranker_model)
 
-    fname = f"stage1_{args.retrieval_mode}_scales-{scales}_emb-{emb}_{rr}_finalk-{args.final_k}.jsonl"
+    fname = f"stage1_{args.retrieval_mode}_emb-{emb}_{rr}_finalk-{args.final_k}_qa_query.jsonl"
     out_jsonl = os.path.join(args.out_dir, fname)
     meta_json = out_jsonl + ".meta.json"
     return OutputSpec(out_jsonl=out_jsonl, meta_json=meta_json)
 
+def load_jsonl(input_path: str, test_mode: bool = False, test_n: int = 10) -> List[Dict[str, Any]]:
+    records = []
+    with open(input_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+                records.append(rec)
+                if test_mode and len(records) >= test_n:
+                    break
+            except json.JSONDecodeError as e:
+                print(f"⚠️ Skipping invalid JSON line: {e}")
+                continue
+    return records
 
 def parse_args():
     p = argparse.ArgumentParser()
 
-    p.add_argument("--input_csv", type=str, default=os.getenv("INPUT_CSV", "data_preparation/raters.csv"))
+    p.add_argument("--input_jsonl", type=str, default=os.getenv("INPUT_JSONL", "data_eval/test_set0213.jsonl"))
     p.add_argument("--db_folder", type=str, default=os.getenv("DB_FOLDER", "data_preparation/chroma_db_multiscale"))
     p.add_argument("--out_dir", type=str, default=os.getenv("OUT_DIR", "retrieval_cache"))
-    p.add_argument("--out_jsonl", type=str, default=os.getenv("OUT_JSONL", ""), help="Optional explicit path; overrides auto naming.")
+    p.add_argument("--out_jsonl", type=str, default=os.getenv("OUT_JSONL", ""))
 
     p.add_argument("--test_mode", action="store_true")
     p.add_argument("--test_n", type=int, default=int(os.getenv("TEST_N", "10")))
@@ -558,35 +575,33 @@ def parse_args():
     p.add_argument("--force", action="store_true", help="Overwrite output (disables resume).")
     p.add_argument("--max_workers", type=int, default=int(os.getenv("MAX_WORKERS", "6")))
 
-    p.add_argument("--allowed_scales", nargs="+", default=os.getenv("ALLOWED_SCALES", "medium").split(","))
-
     p.add_argument("--retrieval_mode", choices=["dense_only", "bm25_only", "hybrid_rrf"], default=os.getenv("RETRIEVAL_MODE", "hybrid_rrf"))
     p.add_argument("--dense_k", type=int, default=int(os.getenv("DENSE_K", "10")))
     p.add_argument("--bm25_k", type=int, default=int(os.getenv("BM25_K", "10")))
     p.add_argument("--rrf_k", type=int, default=int(os.getenv("RRF_K", "60")))
-
-    # IMPORTANT: you asked to retrieve top-5
-    p.add_argument("--final_k", type=int, default=int(os.getenv("FINAL_K", "4")))
+    p.add_argument("--final_k", type=int, default=int(os.getenv("FINAL_K", "5")))
 
     p.add_argument("--embedding_model", type=str, default=os.getenv("EMBEDDING_MODEL", "Qwen/Qwen3-Embedding-8B"))
     p.add_argument("--embedding_device", type=str, default=os.getenv("EMBEDDING_DEVICE", "cpu"))
 
-    p.add_argument("--reranker_type", choices=["none", "qwen", "bge"], default=os.getenv("RERANKER_TYPE", "qwen"))
+    p.add_argument("--reranker_type", choices=["none", "qwen", "bge", "mxbai"], default=os.getenv("RERANKER_TYPE", "qwen"))
     p.add_argument("--reranker_device", type=str, default=os.getenv("RERANKER_DEVICE", "cpu"))
     p.add_argument("--reranker_batch_size", type=int, default=int(os.getenv("RERANKER_BATCH_SIZE", "3")))
     p.add_argument("--max_doc_chars_rerank", type=int, default=int(os.getenv("MAX_DOC_CHARS_RERANK", "4000")))
 
-    # qwen reranker params
+    # Reranker models
     p.add_argument("--qwen_reranker_model", type=str, default=os.getenv("QWEN_RERANKER_MODEL", "Qwen/Qwen3-Reranker-4B"))
-
-    # bge reranker params
-    p.add_argument("--bge_reranker_model", type=str, default=os.getenv("BGE_RERANKER_MODEL", "BAAI/bge-m3"))
+    p.add_argument("--bge_reranker_model", type=str, default=os.getenv("BGE_RERANKER_MODEL", "BAAI/bge-reranker-large"))
+    p.add_argument("--mxbai_reranker_model", type=str, default=os.getenv("MXBAI_RERANKER_MODEL", "mixedbread-ai/mxbai-rerank-large-v2"))
 
     return p.parse_args()
 
 
 def main():
     args = parse_args()
+
+    if _HAS_HF_HUB:
+        print(f"🔎 huggingface_hub={huggingface_hub.__version__}")
 
     ensure_dir(args.out_dir)
 
@@ -609,15 +624,37 @@ def main():
             print(f"↩️ Resume enabled: found {len(existing_keys)} existing rows in {out_jsonl}")
 
     trial_index_path = os.path.join(args.db_folder, "available_trials.json")
-    with open(trial_index_path, "r", encoding="utf-8") as f:
-        valid_ids = set(json.load(f))
+    valid_trial_ids = set()
+    if os.path.exists(trial_index_path):
+        with open(trial_index_path, "r", encoding="utf-8") as f:
+            valid_trial_ids = set(json.load(f))
+    else:
+        print(f"⚠️  Trial index not found at {trial_index_path}. All trial IDs will be accepted.")
 
     # Load embeddings + DB
     print(f"⏳ Loading embeddings on {args.embedding_device}: {args.embedding_model}")
-    embedding_fn = HuggingFaceEmbeddings(
-        model_name=args.embedding_model,
-        model_kwargs={"trust_remote_code": True, "device": args.embedding_device},
-    )
+    try:
+        embedding_fn = HuggingFaceEmbeddings(
+            model_name=args.embedding_model,
+            model_kwargs={
+                "trust_remote_code": True,
+                "device": args.embedding_device,
+            },
+        )
+    except Exception as e:
+        msg = str(e)
+        if ("additional_chat_templates" in msg) or ("RemoteEntryNotFoundError" in msg) or ("404" in msg):
+            print("⚠️  HF template/metadata fetch failed; retrying with local_files_only=True (cache-only)...")
+            embedding_fn = HuggingFaceEmbeddings(
+                model_name=args.embedding_model,
+                model_kwargs={
+                    "trust_remote_code": True,
+                    "device": args.embedding_device,
+                    "local_files_only": True,
+                },
+            )
+        else:
+            raise
     db = Chroma(persist_directory=args.db_folder, embedding_function=embedding_fn)
     print("✅ Chroma DB loaded")
 
@@ -625,58 +662,47 @@ def main():
     if args.reranker_type == "none":
         reranker = NullReranker()
         reranker_name = "none"
-    elif args.reranker_type == "bge":
+    elif args.reranker_type in ["bge", "mxbai"]:
         if CrossEncoder is None:
-            raise RuntimeError("sentence_transformers not installed; cannot use bge reranker")
-        reranker = BGEReranker(model_name=args.bge_reranker_model, device=args.reranker_device)
-        reranker_name = args.bge_reranker_model
+            raise RuntimeError("sentence_transformers not installed; cannot use cross-encoder reranker")
+        model_name = args.bge_reranker_model if args.reranker_type == "bge" else args.mxbai_reranker_model
+        reranker = CrossEncoderReranker(model_name=model_name, device=args.reranker_device)
+        reranker_name = model_name
     else:
         reranker = Qwen3Reranker4B(model_name=args.qwen_reranker_model, device=args.reranker_device)
         reranker_name = args.qwen_reranker_model
 
-    # Load data
-    df = pd.read_csv(args.input_csv)
-    if args.test_mode:
-        df = df.head(args.test_n)
-
-    df["normalized_id"] = df["trial_num"].apply(normalize_trial_id)
-    df = df[df["normalized_id"].isin(valid_ids)].reset_index(drop=True)
-
+    # Load data from JSONL
+    print(f"📂 Loading JSONL: {args.input_jsonl}")
+    all_records = load_jsonl(args.input_jsonl, test_mode=args.test_mode, test_n=args.test_n)
+    
     # Worklist (resume-aware)
-    work_items: List[Tuple[int, pd.Series]] = []
-    for i, row in df.iterrows():
-        qn = resolve_question_num(i, row)
-        nid = row["normalized_id"]
-        key = f"{nid}::{qn}"
-        if (not args.force) and (key in existing_keys):
+    work_items: List[Dict[str, Any]] = []
+    skipped_count = 0
+    for rec in all_records:
+        qa_id = rec.get("qa_id")
+        if qa_id is None:
             continue
-        work_items.append((i, row))
+        
+        if (not args.force) and (qa_id in existing_keys or str(qa_id) in existing_keys):
+            skipped_count += 1
+            continue
+        
+        work_items.append(rec)
 
-    print(f"📌 Input rows after valid_id filter: {len(df)}")
+    print(f"📌 Total records: {len(all_records)}")
+    print(f"📌 Skipped (already processed): {skipped_count}")
     print(f"📌 Rows to process this run: {len(work_items)}")
-    print(
-        "⚙️  "
-        f"retrieval_mode={args.retrieval_mode} | allowed_scales={args.allowed_scales} | "
-        f"dense_k={args.dense_k} | bm25_k={args.bm25_k} | rrf_k={args.rrf_k} | final_k={args.final_k}"
-    )
-    print(
-        "⚙️  "
-        f"embedding={args.embedding_model} ({args.embedding_device}) | "
-        f"reranker_type={args.reranker_type} | reranker={reranker_name} ({args.reranker_device}) | "
-        f"max_doc_chars_rerank={args.max_doc_chars_rerank}"
-    )
-    print(f"⚙️  max_workers={args.max_workers}")
+    print(f"⚙️  retrieval_mode={args.retrieval_mode} | dense_k={args.dense_k} | bm25_k={args.bm25_k} | rrf_k={args.rrf_k} | final_k={args.final_k}")
+    print(f"⚙️  embedding={args.embedding_model} | reranker_type={args.reranker_type} | reranker={reranker_name}")
     print(f"📝 Output JSONL: {out_jsonl}")
 
-    # BM25 cache lives for the entire run (thread-safe)
     bm25_cache: dict = {}
 
-    # Write meta sidecar
     meta_obj = {
-        "input_csv": args.input_csv,
+        "input_jsonl": args.input_jsonl,
         "db_folder": args.db_folder,
         "retrieval_mode": args.retrieval_mode,
-        "allowed_scales": args.allowed_scales,
         "dense_k": args.dense_k,
         "bm25_k": args.bm25_k,
         "rrf_k": args.rrf_k,
@@ -692,9 +718,6 @@ def main():
     with open(meta_json, "w", encoding="utf-8") as mf:
         json.dump(meta_obj, mf, indent=2, ensure_ascii=False)
 
-    # Ensure output dir exists
-    ensure_dir(os.path.dirname(out_jsonl) or ".")
-
     def write_jsonl(obj: Dict[str, Any]):
         with write_lock:
             with open(out_jsonl, "a", encoding="utf-8") as f:
@@ -703,16 +726,14 @@ def main():
     # Process
     with ThreadPoolExecutor(max_workers=args.max_workers) as ex:
         futures = []
-        for (i, row) in work_items:
+        for rec in work_items:
             futures.append(
                 ex.submit(
                     process_one,
-                    i,
-                    row,
+                    rec,
                     db,
                     reranker,
                     bm25_cache,
-                    args.allowed_scales,
                     args.retrieval_mode,
                     args.dense_k,
                     args.bm25_k,
@@ -721,29 +742,17 @@ def main():
                     args.reranker_type,
                     args.reranker_batch_size,
                     args.max_doc_chars_rerank,
+                    valid_trial_ids,
                 )
             )
 
         for fut in tqdm(as_completed(futures), total=len(futures), desc="stage1_retrieve"):
             obj = fut.result()
-            # attach settings per record for provenance
-            obj["retrieval_settings"] = {
-                "retrieval_mode": args.retrieval_mode,
-                "allowed_scales": args.allowed_scales,
-                "dense_k": args.dense_k,
-                "bm25_k": args.bm25_k,
-                "rrf_k": args.rrf_k,
-                "final_k": args.final_k,
-                "embedding_model": args.embedding_model,
-                "reranker_type": args.reranker_type,
-                "reranker_model": reranker_name,
-                "max_doc_chars_rerank": args.max_doc_chars_rerank,
-            }
+            obj["retrieval_settings"] = meta_obj
             write_jsonl(obj)
 
     print(f"✅ Stage 1 complete → {out_jsonl}")
     print(f"✅ Metadata saved → {meta_json}")
-
 
 if __name__ == "__main__":
     main()

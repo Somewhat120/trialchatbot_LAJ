@@ -2,418 +2,350 @@
 # -*- coding: utf-8 -*-
 
 """
-stage2_laj_runner.py
---------------------
-Stage 2: LAJ (LLM-as-Judge) runner.
-Consumes Stage 1 frozen retrieval JSONL (evidence already selected) and produces
-LAJ scoring JSONL via vLLM OpenAI-compatible Chat Completions.
+02_LAJ_RAG_loop.py (vLLM RAG / C5 factual accuracy)
+------------------------------------------------------------
+LLM-as-a-Judge evaluation using Retrieved Context (RAG) via vLLM.
 
-Design goals
-- Lightweight: NO embeddings, NO Chroma, NO BM25/SPLADE/RRF, NO rerank.
-- Resume-safe: append-only JSONL; skips already-scored run_keys unless --force.
-- Model-family safe: message formatting controlled by a JSON model profile (no rewrites).
-- Easy to debug: run_key + record_id + optional payload previews/hashes.
-
-NEW (output layout)
-- Writes outputs into per-variation folders like:
-    <out_root>/LAJ_score_QWEN_RAG_baseline/
-    <out_root>/LAJ_score_QWEN_RAG_def_only/
-    <out_root>/LAJ_score_QWEN_RAG_def_cot/
-- Writes ONE output JSONL per prompt file under that folder.
+Parity with 02_LAJ_oracle_loop_gpt.py / run_all_prompt_openai.sh:
+- ZEROSHOT vs FEWSHOT: Decided by command (--zeroshot_only / --fewshot_only), not by
+  existence of demo files. For "all", the caller runs this script twice (once per flag).
+- vLLM COMPATIBILITY: Local API base, threading semaphores, model profiles.
+- REASONING TOKENS: Strips <unused94> and <think> from model outputs.
+- RECENCY BIAS FIX: Injects demos BEFORE '### SOURCE TEXT'.
+- DYNAMIC EVIDENCE: evidence_tag from args or retrieval_settings in JSONL.
 """
 
 import os
+# ---- CPU oversubscription guards ----
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 os.environ.setdefault("OMP_NUM_THREADS", os.getenv("OMP_NUM_THREADS", "2"))
 os.environ.setdefault("MKL_NUM_THREADS", os.getenv("MKL_NUM_THREADS", "2"))
 os.environ.setdefault("OPENBLAS_NUM_THREADS", os.getenv("OPENBLAS_NUM_THREADS", "2"))
 os.environ.setdefault("NUMEXPR_NUM_THREADS", os.getenv("NUMEXPR_NUM_THREADS", "2"))
 
-import json
-import re
 import glob
+import json
+import sys
 import time
+import re
 import argparse
 import hashlib
 import threading
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 
 from tqdm import tqdm
 from openai import OpenAI
 
-
-# ---------------- thread-safety ----------------
 write_lock = threading.Lock()
 
-# ------------------------------------------------
-# Small helpers
-# ------------------------------------------------
-def ensure_dir(path: str) -> None:
-    if path and not os.path.exists(path):
-        os.makedirs(path, exist_ok=True)
+# ======================================================
+# CONFIG
+# ======================================================
+PROMPT_VARIATIONS = {
+    "def_cot": {"dir": "prompt_comparison_accuracy/prompts_cot/"},
+    "def_only": {"dir": "prompt_comparison_accuracy/prompts_def_only/"},
+    "baseline": {"dir": "prompt_comparison_accuracy/baseline/"},
+}
 
-def safe_str(x: Any) -> str:
-    return "" if x is None else str(x)
+EXCLUDED_PROMPTS = []
+OUTPUT_ROOT = "LAJ_score_outputs"
+DEMONSTRATIONS_DIR = "prompt_comparison_accuracy/demonstrations/"
+TEST_MODE = False
 
-def md5_text(x: str) -> str:
-    return hashlib.md5(x.encode("utf-8")).hexdigest()
+# ======================================================
+# MAPPING
+# ======================================================
+FILENAME_TO_HUMAN_KEY = {
+    "5_factual_acc": "Level of factual accuracy",
+}
 
-def slug(s: str, max_len: int = 80) -> str:
-    s = re.sub(r"[^a-zA-Z0-9]+", "_", s).strip("_").lower()
-    return s[:max_len] if len(s) > max_len else s
+PROMPTBASE_TO_CRITERION_ID = {
+    "5_factual_acc": "reliability_c5_factual_accuracy",
+}
+
+CRITERION_ID_TO_DOMAIN = {
+    "reliability_c5_factual_accuracy": "reliability",
+}
+
+# ======================================================
+# HELPERS
+# ======================================================
+def run_stamp() -> str:
+    return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+def md5_text(s: str) -> str:
+    return hashlib.md5(s.encode("utf-8")).hexdigest()
+
+def md5_json(obj) -> str:
+    return md5_text(json.dumps(obj, ensure_ascii=False, sort_keys=True))
 
 def load_json(path: str) -> dict:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
-def read_jsonl(path: str):
-    with open(path, "r", encoding="utf-8") as f:
+def load_jsonl(filepath: str):
+    rows = []
+    with open(filepath, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    return rows
+
+def append_jsonl(filepath: str, record: dict):
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with write_lock:
+        with open(filepath, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+def read_existing_record_ids(output_path: str) -> set:
+    seen = set()
+    if not os.path.exists(output_path):
+        return seen
+    with open(output_path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
             try:
-                yield json.loads(line)
+                rec = json.loads(line)
+                rid = rec.get("qa_id") or rec.get("record_id")
+                if rid:
+                    seen.add(str(rid))
             except Exception:
                 continue
+    return seen
 
-def append_jsonl(path: str, obj: Dict[str, Any]) -> None:
-    with write_lock:
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+def get_row_id(row: dict) -> str:
+    qa_id = row.get("qa_id")
+    if qa_id is not None and str(qa_id).strip():
+        return str(qa_id).strip()
+    trial = row.get("trial_num") or "UNKNOWN"
+    qn = row.get("question_num") or row.get("question_num_raw_source", "UNKNOWN")
+    return f"{str(trial).strip()}::{qn}"
 
-def stage1_basename(stage1_jsonl: str) -> str:
-    # "path/to/foo.jsonl" -> "foo"
-    base = os.path.basename(stage1_jsonl)
-    if base.endswith(".jsonl"):
-        base = base[:-5]
-    return base
+def row_belongs_to_prompt(row: dict, prompt_base: str) -> bool:
+    # RAG pipeline evaluates factual accuracy
+    if "retrieval_settings" in row or "retrieved_context" in row:
+        if prompt_base == "5_factual_acc":
+            return True
+    return False
 
-def prompt_basename(prompt_file: str) -> str:
-    # "5_factual_acc.json" -> "5_factual_acc"
-    base = os.path.basename(prompt_file)
-    if base.endswith(".json"):
-        base = base[:-5]
-    return base
+def get_evidence_tag(row: dict) -> str:
+    """Build evidence segment from retrieval_settings (mode, reranker, final_k)."""
+    settings = row.get("retrieval_settings", {})
+    if not settings:
+        return "unknown_retrieval"
+    mode = settings.get("retrieval_mode", "unknown")
+    reranker = settings.get("reranker_type", "none")
+    parts = [mode]
+    if reranker and reranker != "none":
+        parts.append(reranker)
+    # Include final_k when present so k3 vs k5 get different paths
+    final_k = settings.get("final_k")
+    if final_k is not None:
+        try:
+            parts.append(f"k{int(final_k)}")
+        except (TypeError, ValueError):
+            pass
+    return "_".join(parts)
 
-def build_record_id(nid: str, qn: Any) -> str:
-    return f"{nid}::{qn}"
+def is_linked_trial_id(trial: str) -> bool:
+    if not trial or not isinstance(trial, str):
+        return False
+    t = trial.strip().upper()
+    if t in ("UNKNOWN", "NULL", "NONE", "NAN", "0"):
+        return False
+    return bool(re.match(r"^NCT\d+$", t))
 
-def build_run_key(
-    nid: str,
-    qn: Any,
-    prompt_variation: str,
-    prompt_file: str,
-    judge_model: str,
-    final_k_used: int,
-    model_profile: str,
-) -> str:
-    return f"{nid}::{qn}::{prompt_variation}::{prompt_file}::{judge_model}::{model_profile}::k{final_k_used}"
 
-def load_existing_run_keys(out_jsonl: str) -> set:
-    keys = set()
-    if not os.path.exists(out_jsonl):
-        return keys
-    for obj in read_jsonl(out_jsonl):
-        rk = obj.get("run_key")
-        if rk:
-            keys.add(rk)
-    return keys
-
-# ------------------------------------------------
-# Evidence truncation for Stage 2 (final_k_used)
-# ------------------------------------------------
-_EVIDENCE_SPLIT_RE = re.compile(r"\n(?=== \[EVIDENCE\s+\d+\s*)")
-
-def truncate_retrieved_context(ctx: str, final_k_used: int) -> str:
-    ctx = safe_str(ctx).strip()
-    if not ctx:
-        return ""
-
-    parts = _EVIDENCE_SPLIT_RE.split(ctx)
-    if len(parts) == 1:
-        parts2 = re.split(r"(?=== \[EVIDENCE\s+\d+\s*)", ctx)
-        parts2 = [p.strip() for p in parts2 if p.strip()]
-        if len(parts2) <= 1:
-            return ctx
-        parts = parts2
-
-    parts = [p.strip() for p in parts if p.strip()]
-    if not parts:
-        return ctx
-
-    k = max(1, int(final_k_used))
-    return "\n\n".join(parts[:k])
-
-# ------------------------------------------------
-# Prompt loading
-# ------------------------------------------------
-@dataclass
-class PromptSpec:
-    variation: str
-    file_path: str
-    file_name: str
-    system_role: str
-    instruction_template: str
-    prompt_hash: str
-
-def parse_prompt_dirs(prompt_dirs: List[str]) -> Dict[str, str]:
-    out = {}
-    for item in prompt_dirs:
-        if ":" not in item:
-            raise ValueError(f"--prompt_dirs entry must be variation:dir, got: {item}")
-        var, d = item.split(":", 1)
-        out[var.strip()] = d.strip()
-    return out
-
-def discover_prompt_files(dir_path: str, excluded: Optional[List[str]] = None) -> List[str]:
-    if not os.path.exists(dir_path):
+def discover_prompts(prompts_dir: str, excluded_list: list):
+    if not os.path.exists(prompts_dir):
         return []
-    files = sorted(glob.glob(os.path.join(dir_path, "*.json")))
-    if excluded:
-        ex = set(excluded)
-        files = [f for f in files if os.path.basename(f) not in ex]
+    files = glob.glob(os.path.join(prompts_dir, "*.json"))
+    files = [p for p in files if os.path.basename(p) not in excluded_list]
+    files.sort()
     return files
 
-def load_prompts(prompt_dir_map: Dict[str, str], excluded: Optional[List[str]] = None) -> List[PromptSpec]:
-    prompts: List[PromptSpec] = []
-    for variation, d in prompt_dir_map.items():
-        for fp in discover_prompt_files(d, excluded=excluded):
-            obj = load_json(fp)
-            system_role = safe_str(obj.get("system_role", "")).strip()
-            instruction_template = safe_str(obj.get("instruction_template", "")).strip()
-            ph = md5_text(system_role + "\n\n" + instruction_template)
-            prompts.append(
-                PromptSpec(
-                    variation=variation,
-                    file_path=fp,
-                    file_name=os.path.basename(fp),
-                    system_role=system_role,
-                    instruction_template=instruction_template,
-                    prompt_hash=ph,
-                )
-            )
-    return prompts
 
-def render_user_text(template: str, context: str, question: str, answer: str) -> str:
-    t = safe_str(template)
-    t = t.replace("{context}", "___CTX___").replace("{question}", "___Q___").replace("{answer}", "___A___")
-    t = t.replace("{", "{{").replace("}", "}}")
-    t = t.replace("___CTX___", "{context}").replace("___Q___", "{question}").replace("___A___", "{answer}")
-    try:
-        return t.format(context=context, question=question, answer=answer).strip()
-    except Exception:
+def extract_version_from_filename(filename: str):
+    base_name = os.path.splitext(filename)[0]
+    m = re.search(r"_v(\d+)$", base_name)
+    return f"v{m.group(1)}" if m else None
+
+
+def get_base_prompt_name(filename: str):
+    base_name = os.path.splitext(filename)[0]
+    base_name = re.sub(r"_v\d+$", "", base_name)
+    return base_name
+
+
+# ======================================================
+# DEMONSTRATIONS (RECENCY BIAS FIX)
+# ======================================================
+def load_demonstrations(prompt_name: str):
+    demo_file = os.path.join(DEMONSTRATIONS_DIR, f"{prompt_name}_demos.json")
+    if os.path.exists(demo_file):
         try:
-            return t.format(question=question, answer=answer).strip()
+            with open(demo_file, "r", encoding="utf-8") as f:
+                return (json.load(f).get("demonstrations", []), demo_file)
         except Exception:
-            return f"{context}\n\nQUESTION:\n{question}\n\nANSWER:\n{answer}".strip()
+            pass
+    base_name = re.sub(r"_short_v\d+$", "", prompt_name)
+    base_name = re.sub(r"_v\d+$", "", base_name)
+    if base_name != prompt_name:
+        demo_file = os.path.join(DEMONSTRATIONS_DIR, f"{base_name}_demos.json")
+        if os.path.exists(demo_file):
+            try:
+                with open(demo_file, "r", encoding="utf-8") as f:
+                    return (json.load(f).get("demonstrations", []), demo_file)
+            except Exception:
+                pass
+    return ([], None)
 
-# ------------------------------------------------
-# Model profile loading + message building
-# ------------------------------------------------
-def load_model_profiles(path: str) -> dict:
-    profiles = load_json(path)
-    if not isinstance(profiles, dict) or not profiles:
-        raise ValueError(f"Model profiles file must be a non-empty dict: {path}")
-    return profiles
+def format_demonstrations(demos: list) -> str:
+    if not demos:
+        return ""
+    lines = ["\n\n### EXAMPLES\n"]
+    for i, demo in enumerate(demos, 1):
+        lines.append(f"Example {i}:")
+        lines.append(f"Trial: {demo.get('trial_num', 'N/A')}")
+        lines.append(f"User Question: {demo.get('question', 'N/A')}")
+        lines.append(f"Chatbot Answer: {demo.get('answer', 'N/A')}")
+        reas = demo.get("ai_reasoning", "")
+        reas = "" if reas is None else str(reas)
+        reas_json = json.dumps(reas, ensure_ascii=False)
+        score = demo.get("final_score", "N/A")
+        lines.append(f"Expected JSON Output: {{\"reasoning\": {reas_json}, \"final_score\": {score}}}\n")
+    return "\n".join(lines).strip()
 
-def build_messages_from_profile(
-    profile: dict,
-    prompt: PromptSpec,
-    context: str,
-    question: str,
-    answer: str
-) -> List[Dict[str, Any]]:
-    """
-    Supports:
-      - message_style: system_user OR user_only
-      - content_style: string OR openai_text_list
-      - merge_system_into_user: bool
-    """
-    user_text = render_user_text(prompt.instruction_template, context, question, answer)
+def inject_demos(user_prompt: str, demo_text: str):
+    """Injects demos ABOVE the source text to preserve Recency Bias."""
+    if not demo_text or not demo_text.strip():
+        return (user_prompt, "NO_DEMOS")
+    
+    anchors = [
+        ("### SOURCE TEXT", "SOURCE_TEXT"), 
+        ("### OUTPUT (STRICT JSON ONLY)", "OUTPUT_STRICT"),
+    ]
+    for anchor, label in anchors:
+        if anchor in user_prompt:
+            idx = user_prompt.find(anchor)
+            new_prompt = user_prompt[:idx] + demo_text.strip() + "\n\n" + user_prompt[idx:]
+            return (new_prompt, label)
+    return (user_prompt + "\n\n" + demo_text.strip(), "APPEND_FALLBACK")
 
-    system_text = prompt.system_role.strip() if prompt.system_role else ""
-    merge_system = bool(profile.get("merge_system_into_user", False))
+# ======================================================
+# vLLM REASONING EXTRACTION
+# ======================================================
+THOUGHT_RE = re.compile(
+    r"<(?:unused94|think|start_of_thought)>\s*(.*?)\s*<(?:unused95|/think|end_of_thought)>",
+    flags=re.DOTALL | re.IGNORECASE
+)
+THOUGHT_UNCLOSED_RE = re.compile(
+    r"<(?:unused94|think|start_of_thought)>\s*(.*)\Z",
+    flags=re.DOTALL | re.IGNORECASE
+)
 
-    if merge_system and system_text:
-        combined_user = f"{system_text}\n\n{user_text}".strip()
-        system_text = ""
-    else:
-        combined_user = user_text
 
-    content_style = profile.get("content_style", "string")
-    if content_style == "openai_text_list":
-        user_content = [{"type": "text", "text": combined_user}]
-        system_content = [{"type": "text", "text": system_text}] if system_text else None
-    else:
-        user_content = combined_user
-        system_content = system_text if system_text else None
+def parse_reasoning_and_json(raw_text: str) -> tuple[str, str]:
+    """Separates <unused94> or <think> reasoning tokens from final JSON."""
+    m = THOUGHT_RE.search(raw_text)
+    if m:
+        reasoning = m.group(1).strip()
+        remainder = (raw_text[:m.start()] + raw_text[m.end():]).strip()
+        return reasoning, remainder
 
-    msg_style = profile.get("message_style", "system_user")
-    messages: List[Dict[str, Any]] = []
+    m2 = THOUGHT_UNCLOSED_RE.search(raw_text)
+    if m2:
+        # no closing marker; treat everything after opening as reasoning
+        return m2.group(1).strip(), raw_text[:m2.start()].strip()
 
-    if msg_style == "system_user":
-        if system_content:
-            messages.append({"role": "system", "content": system_content})
-        messages.append({"role": "user", "content": user_content})
-    elif msg_style == "user_only":
-        if system_content and not merge_system:
-            # ensure system instructions are not lost
-            if content_style == "openai_text_list":
-                user_content = [{"type": "text", "text": f"{system_text}\n\n{combined_user}".strip()}]
-            else:
-                user_content = f"{system_text}\n\n{combined_user}".strip()
-        messages.append({"role": "user", "content": user_content})
-    else:
-        raise ValueError(f"Unknown message_style in profile: {msg_style}")
-
-    return messages
-
-# ------------------------------------------------
-# Score extraction
-# ------------------------------------------------
-_FINAL_SCORE_RE = re.compile(r'final_score[^0-9]{0,20}(\d)', flags=re.IGNORECASE)
+    return "", raw_text.strip()
 
 def extract_score(text: str) -> int:
-    s = safe_str(text).strip()
-    if not s:
-        return -1
+    _, clean_json = parse_reasoning_and_json(text)
+    if not clean_json:
+        clean_json = text
+        
     try:
-        l = s.find("{")
-        r = s.rfind("}")
+        l, r = clean_json.find("{"), clean_json.rfind("}")
         if l != -1 and r != -1 and r > l:
-            sub = s[l:r+1]
-            obj = json.loads(sub)
-            if isinstance(obj, dict) and "final_score" in obj:
+            obj = json.loads(clean_json[l:r+1])
+            if "final_score" in obj:
                 return int(obj["final_score"])
     except Exception:
         pass
-    m = _FINAL_SCORE_RE.search(s)
+        
+    m = re.search(r'final_score[^0-9]{0,20}(\d)', clean_json, flags=re.IGNORECASE)
     return int(m.group(1)) if m else -1
 
-# ------------------------------------------------
-# Stage1 meta path
-# ------------------------------------------------
-def infer_stage1_meta_path(stage1_jsonl: str) -> str:
-    cand = stage1_jsonl + ".meta.json"
-    return cand if os.path.exists(cand) else ""
-
-# ------------------------------------------------
-# Extract chunk resource from stage1_jsonl path
-# ------------------------------------------------
-def extract_chunk_resource(stage1_jsonl: str) -> str:
-    """
-    Extract chunk resource (internal, add_round1, etc.) from stage1_jsonl path.
-    Example: retrieval_chunk/internal/short/file.jsonl -> internal
-    Example: retrieval_chunk/add_round1/short/file.jsonl -> add_round1
-    Returns empty string if not found.
-    """
-    path_parts = os.path.normpath(stage1_jsonl).split(os.sep)
-    try:
-        # Find 'retrieval_chunk' in path and get the next component
-        idx = path_parts.index("retrieval_chunk")
-        if idx + 1 < len(path_parts):
-            return path_parts[idx + 1]
-    except ValueError:
-        pass
-    return ""
-
-# ------------------------------------------------
-# Output folder naming (your requested layout)
-# ------------------------------------------------
-def resolve_variation_out_dir(out_root: str, template: str, model_tag: str, variation: str, chunk_resource: str = "") -> str:
-    """
-    template examples:
-      LAJ_score_{model_tag}_RAG_{variation}
-      LAJ_score_{model_tag}_{variation}     (if you prefer no RAG in name)
+def build_messages_from_profile(profile: dict, system_text: str, formatted_user_text: str):
+    msg_style = profile.get("message_style", "system_user")
+    merge_system = bool(profile.get("merge_system_into_user", False))
     
-    If chunk_resource is provided, it's added as a subdirectory.
-    Final structure: out_root/LAJ_score_.../chunk_resource/
-    """
-    d = template.format(model_tag=model_tag, variation=variation)
-    base_dir = os.path.join(out_root, d)
-    if chunk_resource:
-        return os.path.join(base_dir, chunk_resource)
-    return base_dir
+    if merge_system and system_text:
+        formatted_user_text = f"{system_text}\n\n{formatted_user_text}".strip()
+        system_text = ""
 
-def resolve_output_paths(
-    out_root: str,
-    out_dir_template: str,
-    model_tag: str,
-    prompt: PromptSpec,
-    stage1_jsonl: str,
-    judge_model: str,
-    model_profile: str,
-    final_k_used: int,
-) -> Tuple[str, str]:
-    """
-    Returns:
-      out_jsonl, out_meta_json
-    """
-    # Extract chunk resource from stage1_jsonl path
-    chunk_resource = extract_chunk_resource(stage1_jsonl)
+    messages = []
+    if msg_style == "system_user":
+        if system_text: messages.append({"role": "system", "content": system_text})
+        messages.append({"role": "user", "content": formatted_user_text})
+    elif msg_style == "user_only":
+        if system_text and not merge_system:
+            formatted_user_text = f"{system_text}\n\n{formatted_user_text}".strip()
+        messages.append({"role": "user", "content": formatted_user_text})
+    return messages
+
+# ======================================================
+# WORKER
+# ======================================================
+def process_one(job):
+    row, prompt_data, prompt_base, prompt_hash, variation, args, client, vllm_sema, model_profile, demo_text, demos_meta = job
+
+    row_id = get_row_id(row)
+    trial = str(row.get("trial_num", "UNKNOWN")).strip()
+    qn = row.get("question_num")
+    question = str(row.get("question", "")).strip()
+    answer = str(row.get("chatbot_answer", row.get("answer", ""))).strip()
+
+    # RAG Context
+    raw_context = row.get("retrieved_context", "").strip()
+    has_context = bool(raw_context)
     
-    out_dir = resolve_variation_out_dir(out_root, out_dir_template, model_tag, prompt.variation, chunk_resource)
-    ensure_dir(out_dir)
+    context_missing_reason = "context_present"
+    if not has_context:
+        context_missing_reason = "linked_but_missing_context" if is_linked_trial_id(trial) else "unlinked_general"
 
-    s1 = slug(stage1_basename(stage1_jsonl), 80)
-    pf = slug(prompt_basename(prompt.file_name), 60)
-    jm = slug(judge_model, 40)
-    mp = slug(model_profile, 40)
+    template = prompt_data.get("instruction_template", "")
+    
+    if has_context:
+        context_message = raw_context
+    else:
+        context_message = "" 
+        target_header = "### SOURCE TEXT (Informed Consent Form)"
+        replacement_header = "### SOURCE TEXT\nNO TRIAL DOCUMENT PROVIDED."
+        if target_header in template:
+            template = template.replace(target_header, replacement_header)
+        else:
+            template = re.sub(r"### SOURCE TEXT \(Informed Consent Form\)", replacement_header, template, flags=re.IGNORECASE)
 
-    # Deterministic filename (no timestamp) to support resume.
-    fname = f"{s1}__{pf}__{jm}__{mp}__k{final_k_used}.jsonl"
-    out_jsonl = os.path.join(out_dir, fname)
-    out_meta_json = out_jsonl + ".meta.json"
-    return out_jsonl, out_meta_json
-
-# ------------------------------------------------
-# Worker
-# ------------------------------------------------
-def judge_one(
-    rec: dict,
-    prompt: PromptSpec,
-    args,
-    client: OpenAI,
-    vllm_sema: threading.Semaphore,
-    model_profile: dict,
-) -> Dict[str, Any]:
-
-    nid = safe_str(rec.get("normalized_id", "")).strip()
-    qn = rec.get("question_num", None)
-    record_id = build_record_id(nid, qn)
-
-    trial_num = rec.get("trial_num", rec.get("trial_id", None))
-    question = safe_str(rec.get("question", ""))
-    answer = safe_str(rec.get("chatbot_answer", rec.get("answer", "")))
-
-    ctx_full = safe_str(rec.get("retrieved_context", ""))
-    ctx_used = truncate_retrieved_context(ctx_full, args.final_k_used)
-
-    retrieval_meta = rec.get("retrieval_meta", None)
-    retrieval_meta_used = None
-    if isinstance(retrieval_meta, list) and retrieval_meta:
-        retrieval_meta_used = retrieval_meta[: max(1, int(args.final_k_used))]
+    user_prompt = template.replace("{context}", context_message).replace("{question}", question).replace("{answer}", answer)
+    user_prompt, demos_anchor_used = inject_demos(user_prompt, demo_text)
 
     messages = build_messages_from_profile(
-        profile=model_profile,
-        prompt=prompt,
-        context=ctx_used,
-        question=question,
-        answer=answer,
+        model_profile, 
+        prompt_data.get("system_role", ""), 
+        user_prompt
     )
 
-    run_key = build_run_key(
-        nid=nid,
-        qn=qn,
-        prompt_variation=prompt.variation,
-        prompt_file=prompt.file_name,
-        judge_model=args.model,
-        final_k_used=args.final_k_used,
-        model_profile=args.model_profile,
-    )
+    extra_body = {}
+    if "enable_thinking" in model_profile:
+        extra_body = {"chat_template_kwargs": {"enable_thinking": bool(model_profile["enable_thinking"])}}
 
     t0 = time.time()
     try:
@@ -424,278 +356,160 @@ def judge_one(
                 temperature=args.temperature,
                 top_p=args.top_p,
                 max_tokens=args.max_tokens,
+                extra_body=extra_body if extra_body else None,
             )
         text = resp.choices[0].message.content
+        hidden_thoughts, clean_json = parse_reasoning_and_json(text)
         score = extract_score(text)
-        status = "ok"
-        err = None
+        status, err = "ok", None
     except Exception as e:
-        text = ""
-        score = -1
-        status = "error"
-        err = f"{e}"
-
+        hidden_thoughts, clean_json, score, status, err = "", "", -1, "error", str(e)
     dt = time.time() - t0
 
-    out = {
+    return {
         "status": status,
-        "record_id": record_id,
-        "run_key": run_key,
-
-        "normalized_id": nid,
-        "trial_num": trial_num,
+        "qa_id": row_id,
+        "record_id": row_id,
+        "run_key": md5_text(f"{prompt_hash}::{args.model}::{row_id}"),
+        "dataset_id": row.get("dataset_id", args.dataset_id),
+        "trial_num": trial,
         "question_num": qn,
-
         "question": question,
         "chatbot_answer": answer,
-        "human_score": rec.get("human_score", rec.get("Level of factual accuracy", None)),
-
-        "retrieved_context_used": ctx_used,
-        "retrieval_meta_used": retrieval_meta_used,
-
-        "stage1_source": {
-            "stage1_jsonl": args.stage1_jsonl,
-            "stage1_meta_json": args.stage1_meta_json,
-            "stage1_final_k": args.stage1_final_k,
-            "stage1_condition": args.stage1_condition_label,
-        },
-
-        "prompt_variation": prompt.variation,
-        "prompt_file": prompt.file_name,
-        "prompt_hash": prompt.prompt_hash,
-
+        "human_score": row.get("human_score"),
+        "criterion_id": PROMPTBASE_TO_CRITERION_ID.get(prompt_base, prompt_base),
+        "domain": CRITERION_ID_TO_DOMAIN.get(PROMPTBASE_TO_CRITERION_ID.get(prompt_base), "unknown_domain"),
+        "method": "prompt_fewshot" if demos_meta.get("num_demos", 0) > 0 else "prompt_zeroshot",
+        "prompt_variation": variation,
+        "prompt_file": prompt_data.get("_prompt_filename", ""),
+        "prompt_hash": prompt_hash,
+        "fewshot_enabled": demos_meta.get("num_demos", 0) > 0,
+        "num_demos": demos_meta.get("num_demos", 0),
+        "demos_file": demos_meta.get("demos_file"),
+        "demos_hash": demos_meta.get("demos_hash"),
+        "demos_injection_anchor": demos_anchor_used,
+        "has_retrieved_context": has_context,
+        "context_missing_reason": context_missing_reason,
+        "evidence_tag": get_evidence_tag(row),
+        "retrieved_context": context_message,
+        "retrieval_meta": row.get("retrieval_meta", []),
+        "retrieval_settings": row.get("retrieval_settings", {}),
         "judge_model": args.model,
+        "backend": "vllm",
         "model_profile": args.model_profile,
         "vllm_api_base": args.vllm_api_base,
-        "generation_config": {
-            "temperature": args.temperature,
-            "top_p": args.top_p,
-            "max_tokens": args.max_tokens,
-            "final_k_used": args.final_k_used,
-        },
-
-        "ai_reasoning_raw": text,
+        "generation_config": {"temperature": args.temperature, "top_p": args.top_p, "max_tokens": args.max_tokens},
+        "ai_reasoning": hidden_thoughts if hidden_thoughts else clean_json,
         "ai_score": score,
-
+        "parse_error": "Failed to extract integer" if score == -1 and status == "ok" else None,
+        "error_msg": err,
         "latency_s": round(dt, 4),
     }
 
-    if err:
-        out["error"] = err
-
-    if args.debug_payload:
-        user_msg = messages[-1].get("content", "") if messages else ""
-        user_preview = user_msg
-        if isinstance(user_msg, list):
-            user_preview = (user_msg[0].get("text", "") if user_msg else "")
-        out["debug"] = {
-            "messages_hash": md5_text(json.dumps(messages, ensure_ascii=False)),
-            "user_preview": safe_str(user_preview)[:600],
-            "ctx_preview": ctx_used[:600],
-        }
-
-    return out
-
-# ------------------------------------------------
-# CLI + main
-# ------------------------------------------------
-def parse_args():
-    p = argparse.ArgumentParser()
-
-    # Inputs
-    p.add_argument("--stage1_jsonl", type=str, required=True)
-    p.add_argument("--stage1_meta_json", type=str, default="")
-    p.add_argument("--stage1_condition_label", type=str, default="")
-
-    # Evidence truncation
-    p.add_argument("--final_k_used", type=int, default=int(os.getenv("FINAL_K_USED", "3")))
-
-    # Prompts
-    p.add_argument("--prompt_dirs", nargs="+", default=[])
-    p.add_argument("--prompt_set_name", type=str, default=os.getenv("PROMPT_SET_NAME", "accuracy_v1"))
-    p.add_argument("--excluded_prompts", nargs="*", default=[])
-
-    # vLLM
-    p.add_argument("--vllm_api_base", type=str, default=os.getenv("VLLM_API_BASE", "http://localhost:8000/v1"))
-    p.add_argument("--model", type=str, default=os.getenv("VLLM_MODEL_NAME", "qwen3-30b"))
-
-    # Model profile
-    p.add_argument("--model_profiles_json", type=str, default=os.getenv("MODEL_PROFILES_JSON", "configs/model_profiles.json"))
-    p.add_argument("--model_profile", type=str, default=os.getenv("MODEL_PROFILE", "qwen_instruct_vllm"))
-
-    # Output layout (NEW)
-    p.add_argument("--out_root", type=str, default=os.getenv("OUT_ROOT", "."), help="Root folder where LAJ_score_* folders are created.")
-    p.add_argument("--model_tag", type=str, default=os.getenv("MODEL_TAG", "QWEN"), help="Short tag used in folder naming, e.g., QWEN or MEDGEMMA.")
-    p.add_argument(
-        "--out_dir_template",
-        type=str,
-        default=os.getenv("OUT_DIR_TEMPLATE", "LAJ_score_{model_tag}_RAG_{variation}"),
-        help="Folder name template under out_root. Uses {model_tag} and {variation}.",
-    )
-
-    # Generation
-    p.add_argument("--temperature", type=float, default=float(os.getenv("TEMPERATURE", "0.0")))
-    p.add_argument("--top_p", type=float, default=float(os.getenv("TOP_P", "1.0")))
-    p.add_argument("--max_tokens", type=int, default=int(os.getenv("MAX_NEW_TOKENS", "768")))
-
-    # Concurrency
-    p.add_argument("--vllm_inflight", type=int, default=int(os.getenv("VLLM_INFLIGHT", "8")))
-    p.add_argument("--max_workers", type=int, default=int(os.getenv("MAX_WORKERS", "16")))
-
-    # Behavior
-    p.add_argument("--force", action="store_true", help="Overwrite each per-prompt output JSONL instead of resuming.")
-    p.add_argument("--debug_payload", action="store_true")
-
-    return p.parse_args()
-
+# ======================================================
+# MAIN
+# ======================================================
 def main():
-    args = parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_jsonl", required=True)
+    parser.add_argument("--dataset_id", required=True)
+    parser.add_argument("--prompt_variation", type=str, default=None)
+    parser.add_argument("--prompt_base", type=str, default=None)
+    
+    parser.add_argument("--vllm_api_base", type=str, default=os.getenv("VLLM_API_BASE", "http://localhost:8000/v1"))
+    parser.add_argument("--model", type=str, default=os.getenv("VLLM_MODEL_NAME", "qwen3-30b"))
+    parser.add_argument("--model_profiles_json", type=str, default=os.getenv("MODEL_PROFILES_JSON", "configs/model_profiles.json"))
+    parser.add_argument("--model_profile", type=str, default=os.getenv("MODEL_PROFILE", "qwen_instruct_vllm"))
 
-    # Stage1 meta
-    if not args.stage1_meta_json.strip():
-        args.stage1_meta_json = infer_stage1_meta_path(args.stage1_jsonl)
+    parser.add_argument("--temperature", type=float, default=0.0)
+    parser.add_argument("--top_p", type=float, default=1.0)
+    parser.add_argument("--max_tokens", type=int, default=1024)
+    parser.add_argument("--workers", type=int, default=16)
+    parser.add_argument("--vllm_inflight", type=int, default=8)
+    
+    parser.add_argument("--force", action="store_true")
+    parser.add_argument("--debug_payload", action="store_true")
+    parser.add_argument("--run_stamp", type=str, default=None)
+    
+    parser.add_argument("--zeroshot_only", action="store_true", help="Run all prompts with no demonstrations (output under method=prompt_zeroshot).")
+    parser.add_argument("--fewshot_only", action="store_true", help="Run only prompts that have demonstrations (output under method=prompt_fewshot).")
+    parser.add_argument("--test_n", type=int, default=None, help="If set, process only the first N rows (for smoke/test runs).")
+    parser.add_argument("--evidence_tag", type=str, default=None, help="Override evidence path segment (e.g. from input filename). If set, used instead of get_evidence_tag(rows[0]).")
 
-    stage1_meta = {}
-    if args.stage1_meta_json and os.path.exists(args.stage1_meta_json):
-        stage1_meta = load_json(args.stage1_meta_json)
+    args = parser.parse_args()
 
-    args.stage1_final_k = stage1_meta.get("final_k", None)
-
-    # Prompt dirs defaults
-    if not args.prompt_dirs:
-        args.prompt_dirs = [
-            "baseline:prompt_comparison_accuracy/baseline",
-            "def_only:prompt_comparison_accuracy/prompts_def_only",
-            "def_cot:prompt_comparison_accuracy/prompts_cot",
-        ]
-
-    prompt_dir_map = parse_prompt_dirs(args.prompt_dirs)
-    prompts = load_prompts(prompt_dir_map, excluded=args.excluded_prompts)
-    if not prompts:
-        raise RuntimeError(f"No prompt JSON files found. Check --prompt_dirs: {args.prompt_dirs}")
-
-    # Model profiles
-    profiles = load_model_profiles(args.model_profiles_json)
-    if args.model_profile not in profiles:
-        raise RuntimeError(f"Unknown model_profile={args.model_profile}. Available: {list(profiles.keys())}")
+    profiles = load_json(args.model_profiles_json)
     model_profile = profiles[args.model_profile]
 
-    # vLLM client
     client = OpenAI(base_url=args.vllm_api_base, api_key="EMPTY")
-    client.models.list()
-    vllm_sema = threading.Semaphore(max(1, int(args.vllm_inflight)))
+    vllm_sema = threading.Semaphore(max(1, args.vllm_inflight))
 
-    # Load stage1 records once
-    stage1_records = list(read_jsonl(args.stage1_jsonl))
-    if not stage1_records:
-        raise RuntimeError(f"No valid JSON lines found in {args.stage1_jsonl}")
+    rows = load_jsonl(args.input_jsonl)
+    if args.test_n is not None:
+        rows = rows[: args.test_n]
+    elif TEST_MODE:
+        rows = rows[:5]
 
-    print("============================================================")
-    print("Stage 2 LAJ runner (profile-driven; per-variation folders)")
-    print(f"Stage1 JSONL : {args.stage1_jsonl}")
-    print(f"Stage1 META  : {args.stage1_meta_json if args.stage1_meta_json else '(none)'}")
-    if stage1_meta:
-        print(f"Stage1 cond  : retrieval_mode={stage1_meta.get('retrieval_mode')} | scales={stage1_meta.get('allowed_scales')} | stage1_final_k={stage1_meta.get('final_k')}")
-        print(f"Stage1 rerank: type={stage1_meta.get('reranker_type')} | model={stage1_meta.get('reranker_model')}")
-    print(f"Judge model  : {args.model} @ {args.vllm_api_base}")
-    print(f"Model profile: {args.model_profile} -> {model_profile.get('description','')}")
-    print(f"Evidence     : final_k_used={args.final_k_used}")
-    print(f"Prompts      : {len(prompts)} files across {len(prompt_dir_map)} variations")
-    print(f"Concurrency  : max_workers={args.max_workers} | vllm_inflight={args.vllm_inflight} (<= vLLM --max-num-seqs)")
-    print(f"Output root  : {args.out_root}")
-    print(f"Folder tmpl  : {args.out_dir_template}")
-    print("============================================================")
+    stamp = args.run_stamp if args.run_stamp else run_stamp()
+    if args.evidence_tag is not None and args.evidence_tag.strip():
+        global_evidence_tag = args.evidence_tag.strip()
+    else:
+        global_evidence_tag = get_evidence_tag(rows[0]) if rows else "unknown_evidence"
 
-    # Process each prompt file independently => output isolation like your old pipeline
-    for prompt in prompts:
-        out_jsonl, out_meta_json = resolve_output_paths(
-            out_root=args.out_root,
-            out_dir_template=args.out_dir_template,
-            model_tag=args.model_tag,
-            prompt=prompt,
-            stage1_jsonl=args.stage1_jsonl,
-            judge_model=args.model,
-            model_profile=args.model_profile,
-            final_k_used=args.final_k_used,
-        )
+    variations_to_run = {args.prompt_variation: PROMPT_VARIATIONS[args.prompt_variation]} if args.prompt_variation else PROMPT_VARIATIONS
 
-        # Handle overwrite/resume per file
-        if args.force and os.path.exists(out_jsonl):
-            os.remove(out_jsonl)
+    for variation, vcfg in variations_to_run.items():
+        prompt_paths = discover_prompts(vcfg["dir"], EXCLUDED_PROMPTS)
+        
+        for prompt_path in prompt_paths:
+            prompt_filename = os.path.basename(prompt_path)
+            prompt_base = get_base_prompt_name(prompt_filename)
+            if args.prompt_base and prompt_base != args.prompt_base: continue
+            if prompt_base not in PROMPTBASE_TO_CRITERION_ID: continue
 
-        existing_run_keys = set()
-        if not args.force:
-            existing_run_keys = load_existing_run_keys(out_jsonl)
+            prompt_data = load_json(prompt_path)
+            prompt_data["_prompt_filename"] = prompt_filename
+            prompt_hash = md5_json(prompt_data)
 
-        # Build tasks for this prompt only
-        tasks: List[dict] = []
-        for rec in stage1_records:
-            nid = safe_str(rec.get("normalized_id", "")).strip()
-            qn = rec.get("question_num", None)
-            if not nid or qn is None:
-                continue
+            demos, demos_file = load_demonstrations(os.path.splitext(prompt_filename)[0])
+            demo_text = format_demonstrations(demos)
+            num_demos = len(demos)
+            demos_meta = {"num_demos": num_demos, "demos_file": demos_file, "demos_hash": md5_json({"demonstrations": demos}) if demos else None}
+            # Decide by command (zeroshot_only/fewshot_only), not by existence of demo files: all variations get both when caller runs twice.
+            if args.zeroshot_only:
+                demo_text = ""
+                method_segment = "prompt_zeroshot"
+                demos_meta = {**demos_meta, "num_demos": 0}
+            else:
+                method_segment = "prompt_fewshot" if num_demos > 0 else "prompt_zeroshot"
+            if args.fewshot_only and num_demos == 0: continue
+            rows_for_prompt = [r for r in rows if row_belongs_to_prompt(r, prompt_base)]
+            if not rows_for_prompt: continue
 
-            rk = build_run_key(
-                nid, qn, prompt.variation, prompt.file_name, args.model, args.final_k_used, args.model_profile
-            )
-            if (not args.force) and (rk in existing_run_keys):
-                continue
-            tasks.append(rec)
+            criterion_id = PROMPTBASE_TO_CRITERION_ID[prompt_base]
+            domain = CRITERION_ID_TO_DOMAIN[criterion_id]
+            criterion_name = criterion_id.split("_", 1)[1] if "_" in criterion_id else criterion_id
 
-        print("------------------------------------------------------------")
-        print(f"Prompt: {prompt.variation} / {prompt.file_name}")
-        print(f"Output: {out_jsonl}")
-        print(f"Tasks : {len(tasks)} (resume skipped: {len(existing_run_keys)})")
-        print("------------------------------------------------------------")
+            out_dir = os.path.join(OUTPUT_ROOT, f"dataset={args.dataset_id}", domain, f"method={method_segment}", "backend=vllm", f"model={args.model}", f"evidence={global_evidence_tag}", f"variation={variation}", f"run={stamp}")
+            os.makedirs(out_dir, exist_ok=True)
 
-        # Write per-prompt run meta
-        run_meta = {
-            "stage1_jsonl": args.stage1_jsonl,
-            "stage1_meta_json": args.stage1_meta_json,
-            "stage1_meta": stage1_meta,
-            "stage1_condition_label": args.stage1_condition_label,
+            ver = extract_version_from_filename(prompt_filename)
+            out_path = os.path.join(out_dir, f"{criterion_name}_{ver}.jsonl" if ver else f"{criterion_name}.jsonl")
 
-            "judge_model": args.model,
-            "vllm_api_base": args.vllm_api_base,
+            seen = read_existing_record_ids(out_path) if not args.force else set()
+            jobs = [(r, prompt_data, prompt_base, prompt_hash, variation, args, client, vllm_sema, model_profile, demo_text, demos_meta) for r in rows_for_prompt if get_row_id(r) not in seen]
 
-            "model_profiles_json": args.model_profiles_json,
-            "model_profile": args.model_profile,
-            "model_profile_resolved": model_profile,
+            if not jobs: continue
+            print(f"📝 {prompt_filename} | processing {len(jobs)} records -> {out_path}")
 
-            "prompt_variation": prompt.variation,
-            "prompt_file": prompt.file_name,
-            "prompt_hash": prompt.prompt_hash,
-
-            "generation_config": {
-                "temperature": args.temperature,
-                "top_p": args.top_p,
-                "max_tokens": args.max_tokens,
-                "final_k_used": args.final_k_used,
-            },
-            "concurrency": {
-                "max_workers": args.max_workers,
-                "vllm_inflight": args.vllm_inflight,
-            },
-            "output_jsonl": out_jsonl,
-        }
-        with open(out_meta_json, "w", encoding="utf-8") as f:
-            json.dump(run_meta, f, indent=2, ensure_ascii=False)
-
-        if not tasks:
-            continue
-
-        # Execute
-        with ThreadPoolExecutor(max_workers=max(1, int(args.max_workers))) as ex:
-            futures = [
-                ex.submit(judge_one, rec, prompt, args, client, vllm_sema, model_profile)
-                for rec in tasks
-            ]
-            for fut in tqdm(as_completed(futures), total=len(futures), desc=f"stage2_laj:{prompt.variation}:{prompt.file_name}"):
-                obj = fut.result()
-                append_jsonl(out_jsonl, obj)
-
-        print(f"✅ Done → {out_jsonl}")
-        print(f"✅ Meta → {out_meta_json}")
+            with ThreadPoolExecutor(max_workers=args.workers) as ex:
+                futures = [ex.submit(process_one, j) for j in jobs]
+                try:
+                    completed = tqdm(as_completed(futures), total=len(futures), leave=False, file=sys.stderr)
+                except (OSError, AttributeError):
+                    completed = as_completed(futures)
+                for fut in completed:
+                    append_jsonl(out_path, fut.result())
 
 if __name__ == "__main__":
     main()
