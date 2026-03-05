@@ -1,4 +1,4 @@
-# Reliability Criterion 4 — Level of Source Transparency (Binary 1/5)
+# Reliability Criterion 4 — Level of Source Transparency (2-Point Scale: 1/5)
 
 ## Role
 You are an expert Clinical Trial Auditor. Your task is to evaluate **Criterion 4: Level of Source Transparency**.
@@ -34,9 +34,12 @@ Score **1** if the answer contains **zero** attribution markers.
 - Otherwise → final_score = 1
 
 ## Output Format (strict)
-Return a valid JSON object only. Do not output markdown.
+Return **valid JSON only**. Do not output markdown.
+Valid scores: 1 or 5 (1 = no attribution, 5 = attribution present).
 
-{{
+```json
+{
   "reasoning": "State whether attribution is present. If present, cite the exact attribution phrase(s).",
   "final_score": 1
-}}
+}
+```

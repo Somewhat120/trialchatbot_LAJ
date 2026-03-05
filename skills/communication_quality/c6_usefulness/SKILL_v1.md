@@ -58,9 +58,12 @@ Assign the first matching:
 - 5: completeness = COMPLETE AND high_distraction = false AND additional_context_present = true
 
 ## Output Format (strict)
-Return a valid JSON object only. Do not output markdown. Keep reasoning ≤ 5 sentences.
+Return **valid JSON only**. Do not output markdown. Keep reasoning ≤ 5 sentences.
+Valid scores: 1–5 (1 = failed, 2 = insufficient, 3 = partial, 4 = complete but suboptimal, 5 = complete and optimal).
 
-{{
+```json
+{
   "reasoning": "Briefly state required elements and whether they were present; then justify the final score.",
-  "final_score": 1
-}}
+  "final_score": 3
+}
+```

@@ -68,11 +68,14 @@ Final score = the lowest (most severe) suggested score from Steps 1–3.
 
 Do not count the same issue twice.
 
-## Output (strict)
-Return a valid JSON object only. Do not output markdown.
+## Output Format (strict)
+Return **valid JSON only**. Do not output markdown.
 Reasoning must be 2–5 sentences and MUST include: long/complex count, U and N, redundancy/filler counts, and why that yields the final score.
+Valid scores: 1–5 (1 = severe issues, 5 = excellent clarity).
 
-{{
+```json
+{
   "reasoning": "2–5 sentences with: long/complex count; jargon U and N; redundancy/filler count; and final score justification.",
-  "final_score": 1
-}}
+  "final_score": 3
+}
+```
