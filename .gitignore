@@ -48,3 +48,5 @@ dspy_engine/compile/compile_dspy_copro_skill_c5_vllm.py
 agent/run_skill_scoring_loop_claude.py
 agent/run_skill_scoring_loop_vllm.py
 agent/run_skill_scoring_acc_vllm.py
+data_preparation/development/*.json
+data_preparation/development/*.csv
