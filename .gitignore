@@ -37,3 +37,11 @@ Thumbs.db
 **/archive/
 prompt_comparison_script/gpt_key.txt
 prompt_comparison_script/anthropic_key.txt
+dspy_engine/compiled_artifacts/archive/
+dspy_engine/compile/run_compile_all_skills.sh
+dspy_engine/compile/run_compile_all_skills_vllm.sh
+dspy_engine/compile/compile_skill_all_config.txt
+dspy_engine/compile/smoke_test_copro_skill_vllm.sh
+dspy_engine/compile/compile_dspy_copro_skill_vllm.py
+dspy_engine/compile/run_compile_c5_factual_acc_vllm.sh
+dspy_engine/compile/compile_dspy_copro_skill_c5_vllm.py
