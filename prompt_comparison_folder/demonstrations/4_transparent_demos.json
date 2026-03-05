@@ -1,22 +1,25 @@
 {
-    "demonstrations": [
-      {
-        "question": "After this study ends, may my blood or tissue samples be stored or used for future research?",
-        "answer": "According to the trial document, your samples can be used in future studies, but there is absolutely no privacy risk.",
-        "ai_reasoning": "The response explicitly uses an attribution marker (\"According to the trial document\").",
-        "final_score": 5
-      },
-      {
-        "question": "Does the consent form say whether dosing or monitoring may change for people with kidney problems?",
-        "answer": "Given your kidney condition, I would recommend avoiding procedures that seem stressful and focusing only on the most important ones.",
-        "ai_reasoning": "The response contains no attribution marker to the consent form, protocol, or general knowledge.",
-        "final_score": 1
-      },
-      {
-        "question": "What phase is this study, and what does that phase mean?",
-        "answer": "According to my general knowledge, the \"phase\" of a clinical trial refers to distinct stages of research designed to answer specific questions about a new drug or treatment.",
-        "ai_reasoning": "The response explicitly attributes the explanation to general knowledge.",
-        "final_score": 5
-      }
-    ]
-  }
+  "demonstrations": [
+    {
+      "trial_num": "NCT03527264",
+      "question": "If I am injured during the study, will I receive medical care or compensation?",
+      "answer": "The consent form explains that medical treatment may be available if you are injured as a result of the study, but no additional financial compensation is provided.",
+      "reasoning": "Yes. The response contains an explicit attribution marker: 'The consent form explains', which clearly identifies the source as the trial documents.",
+      "final_score": 5
+    },
+    {
+      "trial_num": "NCT03527264",
+      "question": "Can I stop participating in the study if I change my mind later?",
+      "answer": "You can stop participating whenever you want and it will not affect your care.",
+      "reasoning": "No. The response provides the statement directly without citing any source such as the consent form, trial documents, or general medical knowledge.",
+      "final_score": 1
+    },
+    {
+      "trial_num": "NCT03527264",
+      "question": "Are there risks from the study drug that doctors might not know about yet?",
+      "answer": "According to the consent form, some risks or side effects of the study drug may be unknown or unpredictable at this time.",
+      "reasoning": "Yes. The response explicitly attributes the information using the phrase 'According to the consent form', indicating the source is the trial documents.",
+      "final_score": 5
+    }
+  ]
+}

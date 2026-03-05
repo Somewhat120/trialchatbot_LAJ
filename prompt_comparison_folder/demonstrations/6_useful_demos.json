@@ -1,34 +1,39 @@
 {
-    "demonstrations": [
-      {
-        "question": "After this study ends, may my blood or tissue samples be stored or used for future research?",
-        "answer": "To qualify for this study, you must have prostate cancer that is considered high risk for recurrence.",
-        "ai_reasoning": "The response provides the exact information requested regarding the disease type. It includes both necessary components: the disease (prostate cancer) and the condition (high risk for recurrence). Every word in the response is directly focused on answering the qualification question with no extraneous information. The response is a perfect, direct, and sufficient answer to the user's inquiry.",
-        "final_score": 5
-      },
-      {
-        "question": "After this study ends, may my blood or tissue samples be stored or used for future research?",
-        "answer": "To qualify for this study, you must have prostate cancer that is considered high risk for recurrence. Prostate cancer is the second most common cancer in men worldwide. Standard treatments include surgery and radiation.",
-        "ai_reasoning": "The response directly answers the user's question about the specific cancer type. It correctly identifies both \"prostate cancer\" and the \"high risk for recurrence\" criteria. The response includes general statistics about cancer prevalence and standard treatments which do not help the user determine their specific eligibility for this study. The answer is complete but contains irrelevant educational content that distracts from the specific eligibility criteria, resulting in a Score 4.",
-        "final_score": 4
-      },
-      {
-        "question": "After this study ends, may my blood or tissue samples be stored or used for future research?",
-        "answer": "To qualify for this study, you must have a confirmed diagnosis of prostate cancer.",
-        "ai_reasoning": "The response addresses the cancer type required. The response specifies \"prostate cancer\" but omits the critical eligibility qualifier \"high risk for recurrence\" found in the gold standard. By missing a major defining element of eligibility (risk status), the answer could mislead a low-risk patient into thinking they qualify, triggering a stop at Score 3.",
-        "final_score": 3
-      },
-      {
-        "question": "After this study ends, may my blood or tissue samples be stored or used for future research?",
-        "answer": "To qualify for this study, you must have a specific type of urological cancer that meets certain clinical severity criteria defined in the protocol.",
-        "ai_reasoning": "The response addresses the general topic of qualifying disease types. The answer uses vague terms like \"specific type of urological cancer\" and \"certain clinical severity\" instead of explicitly naming \"Prostate Cancer\" and \"High Risk\". The response gives only hints and is too broad for a participant to self-screen, resulting in a Score 2.",
-        "final_score": 2
-      },
-      {
-        "question": "After this study ends, may my blood or tissue samples be stored or used for future research?",
-        "answer": "To qualify for this study, you must be at least 18 years of age and have adequate organ function as determined by blood tests.",
-        "ai_reasoning": "The user asked for the specific type of cancer required, but the response lists age and organ function requirements. The information provided is entirely unrelated to the user's specific question about cancer type, requiring a stop at Score 1.",
-        "final_score": 1
-      }
-    ]
-  }
+  "demonstrations": [
+    {
+      "trial_num": "NCT03527264",
+      "question": "If I am injured because of the study, will the study pay for my medical treatment?",
+      "answer": "Medical treatment will be available if you suffer a research-related injury. However, the study will not pay for this treatment. You or your health insurance company will be charged.",
+      "reasoning": "Step 1: Pass; the answer addresses whether the study pays for treatment after a research-related injury. Step 2–3: Required element is who pays for treatment; it is PRESENT because the answer states the study will not pay and the participant or insurance will be charged, so completeness = COMPLETE. Step 4: high_distraction = false. Step 5: additional_context_present = false because no extra decision-useful context beyond the minimum is provided. Step 6: completeness COMPLETE with no additional context → final_score = 4.",
+      "final_score": 4
+    },
+    {
+      "trial_num": "NCT03527264",
+      "question": "What are my other options if I choose not to participate in this study?",
+      "answer": "If you decide not to participate, your options may include receiving standard treatment, taking part in another research study if one is available, receiving no cancer-specific therapy, or receiving comfort care (palliative care) to help manage symptoms.",
+      "reasoning": "Step 1: Pass; the answer addresses alternatives to participation. Step 2–3: Required element is available alternatives if not participating; it is PRESENT because the answer lists several options such as standard treatment, another study, no therapy, or comfort care, so completeness = COMPLETE. Step 4: high_distraction = false. Step 5: additional_context_present = true because the answer provides multiple concrete alternatives that support patient decision-making. Step 6: COMPLETE with helpful context → final_score = 5.",
+      "final_score": 5
+    },
+    {
+      "trial_num": "NCT03527264",
+      "question": "Will I have to pay for the study drug and the other treatments I receive during the study?",
+      "answer": "The study drug nivolumab will be provided at no charge and will not be billed to you or your insurance.",
+      "reasoning": "Step 1: Pass; the answer addresses costs during the study. Step 2–3: Required elements are (1) whether the study drug costs the participant and (2) whether other treatments during the study may cost the participant. Element (1) is PRESENT because the answer states the study drug is provided at no charge, but element (2) is ABSENT because it does not address other treatments. Therefore completeness = PARTIAL. Step 4: high_distraction = false. Step 6: completeness PARTIAL → final_score = 3.",
+      "final_score": 3
+    },
+    {
+      "trial_num": "NCT03527264",
+      "question": "Will participating in this study help cure my cancer?",
+      "answer": "We do not know if taking part in this study will help you. This study may help researchers learn information that could help people in the future.",
+      "reasoning": "Step 1: Pass; the answer addresses whether participation will cure the cancer. Step 2–3: Required element is whether the study is expected to cure or benefit the participant; it is PRESENT because the answer states the benefit is unknown and that the study may help future patients, so completeness = COMPLETE. Step 4: high_distraction = false. Step 5: additional_context_present = false because no additional decision-useful details are provided. Step 6: completeness COMPLETE without additional context → final_score = 4.",
+      "final_score": 4
+    },
+    {
+      "trial_num": "NCT03527264",
+      "question": "Can I participate in this study if I am pregnant?",
+      "answer": "You should talk to your doctor about your situation.",
+      "reasoning": "Step 1: Pass; the answer attempts to address pregnancy and participation. Step 2–3: Required element is whether pregnancy affects eligibility; it is ABSENT because the answer only advises speaking with a doctor and does not provide eligibility information. Therefore completeness = INSUFFICIENT. Step 4: high_distraction = false. Step 6: completeness INSUFFICIENT → final_score = 2.",
+      "final_score": 2
+    }
+  ]
+}

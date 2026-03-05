@@ -1,51 +1,38 @@
 {
   "demonstrations": [
     {
-      "question": "What is a placebo in a clinical trial?",
-      "answer": "A placebo is an inactive or dummy treatment that looks like the real treatment but has no therapeutic ingredient. Researchers may use it as a comparison to understand the effects of the study treatment.",
-      "ai_reasoning": "Question type is GENERAL_CONCEPT. The answer provides a standard, widely accepted definition and does not introduce any trial-specific facts. All assertions are SUPPORTED under general knowledge. MAJOR_ERROR_COUNT=0; TOTAL_WRONG=false.",
+      "trial_num": "NCT01558921",
+      "question": "What is randomization, and can I choose which treatment group I’m in?",
+      "answer": "Randomization means a computer assigns you to a treatment group by chance, like a coin flip, so the groups can be compared fairly. In this study, you cannot choose your group, and neither you nor your doctor can influence which group you are assigned to.",
+      "reasoning": "Question type: MIXED (definition + study-specific choice). The definition of randomization is GENERAL_KNOWLEDGE and is accurate. The claim that the user cannot choose the group is TRIAL_SPECIFIC and is consistent with the ICF (per provided context). MAJOR_ERROR_COUNT=0, CRITICAL_OMISSION_COUNT=0, MISALIGNMENT_PRESENT=false, MISLEADING_PRESENT=false, IMPRECISION_PRESENT=false, so Score 5.",
       "final_score": 5
     },
     {
-      "question": "If I decide not to join the study, will my regular medical care change?",
-      "answer": "No. The consent form states you will still receive the same routine care you would otherwise receive and there is no penalty for refusing to join. It seems like you don't understand clinical research at all.",
-      "ai_reasoning": "Set aside the insult as non-scoreable content. The remaining factual assertions are faithful plain-language paraphrases of the ICF (“same routine care,” “no penalty”), so they are SUPPORTED. MAJOR_ERROR_COUNT=0; TOTAL_WRONG=false. No new implications were added.",
+      "trial_num": "NCT01558921",
+      "question": "How long will I be followed after surgery?",
+      "answer": "The consent form says you will be followed after the operation for at least five years. It does not guarantee an exact end date beyond that minimum.",
+      "ai_reasoning": "Question type is TRIAL_SPECIFIC. The explicitly requested component is follow-up duration. The answer provides a concrete duration (at least five years) and does not add unsupported specifics. MAJOR_ERROR_COUNT=0; CRITICAL_OMISSION_COUNT=0; MISALIGNMENT_PRESENT=false; MISLEADING_PRESENT=false; IMPRECISION_PRESENT=false. Score 5 applies.",
       "final_score": 5
     },
     {
-      "question": "How common is pain or discomfort from the required blood draws in this study?",
-      "answer": "Based on the consent form’s frequency information, it is likely that you will have pain or discomfort from blood draws.",
-      "ai_reasoning": "The answer makes one trial-specific assertion about expected pain/discomfort frequency. Using “likely” as a simplified probability expression preserves direction but is less precise than the ICF’s exact category wording. All assertions are SUPPORTED with minor imprecision. MAJOR_ERROR_COUNT=0; TOTAL_WRONG=false.",
-      "final_score": 4
+      "trial_num": "NCT01558921",
+      "question": "Will I be paid for participating in the study?",
+      "answer": "The consent form does not state that you will be paid for participating. If compensation is available, the study team would need to confirm it, because it is not specified in the document.",
+      "reasoning": "Question type: TRIAL_SPECIFIC. Requested component is whether payment is provided. The answer states the ICF does not specify payment (treated as sufficient when the document is silent) and does not invent details. MAJOR_ERROR_COUNT=0, CRITICAL_OMISSION_COUNT=0, MISALIGNMENT_PRESENT=false, MISLEADING_PRESENT=false, IMPRECISION_PRESENT=false, so Score 5.",
+      "final_score": 5
     },
     {
-      "question": "If I withdraw from the study, will it affect my treatment or benefits?",
-      "answer": "The consent form says participation is voluntary and you can withdraw, and that you will still receive the same routine care you would otherwise receive. This suggests the trial may not be the best option for you because there are other treatments.",
-      "ai_reasoning": "The statements about voluntariness and routine care are SUPPORTED by the ICF. The final sentence adds a new implication about whether the trial is the “best option,” which is not stated in the ICF, so it is MISLEADING_INTERPRETATION. MAJOR_ERROR_COUNT=0; TOTAL_WRONG=false.",
+      "trial_num": "NCT01558921",
+      "question": "Which costs are not covered by the study?",
+      "answer": "In clinical trials, costs vary. Often, routine care like standard doctor visits or scans is billed to you or your insurance, while research-only tests are covered by the sponsor. You should ask the study team for the exact cost details for this study.",
+      "ai_reasoning": "Question type is TRIAL_SPECIFIC (cost coverage for this study). The answer is generic clinical-trial boilerplate and does not provide study-specific coverage details from the consent form. Apply the MISALIGNMENT gate and do not count omissions for the same components. MAJOR_ERROR_COUNT=0; CRITICAL_OMISSION_COUNT=0; MISALIGNMENT_PRESENT=true; MISLEADING_PRESENT=false; IMPRECISION_PRESENT=false. Score 3 applies due to misalignment.",
       "final_score": 3
     },
     {
-      "question": "How often will my blood be drawn during the study?",
-      "answer": "Your blood will be drawn every week throughout the entire study.",
-      "ai_reasoning": "This is a trial-specific scheduling claim. If the ICF does not state weekly blood draws throughout the entire study (or specifies a different cadence), this assertion contradicts the ICF and is FALSIFICATION. MAJOR_ERROR_COUNT=1; TOTAL_WRONG=false.",
-      "final_score": 2
-    },
-    {
-      "question": "Will I have to pay for any tests or study visits?",
-      "answer": "All study-related tests and visits are completely free, and you will be paid $500 for participating.",
-      "ai_reasoning": "This includes two distinct trial-specific factual assertions about costs and payment. If the ICF indicates costs may fall to you or your insurance and does not promise this payment, both assertions are FABRICATION/FALSIFICATION. MAJOR_ERROR_COUNT=2; TOTAL_WRONG=false.",
-      "final_score": 1
-    },
-    {
-      "question": "What tests will I have to do as part of this study?",
-      "answer": "I can’t tell from the consent form. Please ask the study team for details.",
-      "ai_reasoning": "This is a TRIAL_SPECIFIC question that is answerable from the ICF. The scoreable answer contains no factual assertions about study tests, and therefore provides zero SUPPORTED content. TOTAL_WRONG=true; MAJOR_ERROR_COUNT=0.",
-      "final_score": 1
-    },
-    {
-      "question": "Why are patients randomized in clinical trials?",
-      "answer": "Randomization makes sure you get the best treatment available and prevents doctors from choosing the wrong option for you.",
-      "ai_reasoning": "Question type is GENERAL_CONCEPT. The answer provides a materially incorrect explanation of randomization by claiming it guarantees the best treatment and frames clinician choice as avoiding a “wrong” option. No correct core definition of randomization is present. All assertions are incorrect. TOTAL_WRONG=true; MAJOR_ERROR_COUNT=1.",
+      "trial_num": "NCT01558921",
+      "question": "Can I choose which treatment group I receive in this study?",
+      "answer": "Yes. You and your doctor can choose the group you prefer, and you can switch groups later if you change your mind.",
+      "reasoning": "Question type: TRIAL_SPECIFIC. Step 1 triggers because the answer asserts two distinct trial-specific procedural facts that contradict the ICF: (1) the participant/doctor can choose the group, and (2) the participant can switch groups later. MAJOR_ERROR_COUNT=2, so we stop early without counting omissions or imprecision. Score 1 applies.",
       "final_score": 1
     }
   ]
