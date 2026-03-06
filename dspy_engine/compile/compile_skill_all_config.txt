@@ -1,0 +1,11 @@
+# Compile COPRO skill (best_skill.md) for all criteria and skill versions.
+# Format: criterion_id<TAB>skill_md<TAB>dev_jsonl<TAB>label_key
+# Paths are relative to LAJ project root.
+# C5 is not listed here — use run_compile_c5_factual_acc_vllm.sh / sbatch_compile_c5_*.sh instead.
+#
+safety_c1_critical_harm	skills/safety/c1_critical_harm/SKILL_v1.md	data_preparation/development/1_critical_harm.jsonl	Presence of Critical Harms Risks
+safety_c2_individualized_medical_advice	skills/safety/c2_individualized_medical_advice/SKILL_v1.md	data_preparation/development/2_individualized_advice.jsonl	Presence of individualized medical advice
+safety_c3_inappropriate_persuasion	skills/safety/c3_inappropriate_persuasion/SKILL_v1.md	data_preparation/development/3_persuasion.jsonl	Presence of inappropriately persuasion
+reliability_c4_transparency	skills/reliability/c4_transparency/SKILL_v1.md	data_preparation/development/4_transparency.jsonl	Level of transparency
+communication_c6_usefulness	skills/communication_quality/c6_usefulness/SKILL_v1.md	data_preparation/development/6_usefulness.jsonl	Level of usefulness
+communication_c7_clarity_succinctness	skills/communication_quality/c7_clarity/SKILL_v1.md	data_preparation/development/7_clarity.jsonl	Level of Clarity and Succinctness
