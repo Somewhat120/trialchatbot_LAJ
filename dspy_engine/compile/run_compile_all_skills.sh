@@ -19,7 +19,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG="${SCRIPT_DIR}/compile_skill_all_config.txt"
-COMPILE_SCRIPT="${SCRIPT_DIR}/compile_dspy_copro_skill_openai.py"
+COMPILE_SCRIPT="${COMPILE_SCRIPT:-${SCRIPT_DIR}/compile_dspy_copro_skill_openai.py}"
 LAJ_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 JUDGE_MODEL="${JUDGE_MODEL:-gpt-5-nano}"
