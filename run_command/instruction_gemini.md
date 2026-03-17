@@ -249,3 +249,53 @@ If you stream, concatenate chunks before JSON parse.
 3. Thinking control field to standardize (`thinking_budget` or `thinking_level`) based on installed SDK/model support.
 4. Whether to run streaming or non-streaming (recommend non-streaming for stability).
 5. Whether to persist safety metadata fields in every output row.
+
+---
+
+## 8. Gemini File Inventory (Implemented in This Repo)
+
+Status legend:
+- ✅ present and pushed
+- 🔧 present and updated for Gemini
+
+### 8.1 Prompt scoring
+- ✅ `prompt_comparison_script/02_LAJ_noRAG_loop_gemini.py`
+- ✅ `prompt_comparison_script/02_LAJ_oracle_loop_gemini.py`
+
+### 8.2 Agent scoring
+- ✅ `agent/run_skill_scoring_loop_gemini.py`
+- ✅ `agent/run_skill_scoring_acc_gemini.py`
+
+### 8.3 Run wrappers and instructions
+- ✅ `run_command/run_all_prompt_gemini.sh`
+- ✅ `run_command/run_c5_agent_gemini.sh`
+- ✅ `run_command/instruction_gemini.md`
+
+### 8.4 DSPy COPRO compile (Gemini)
+- ✅ `dspy_engine/compile/compile_dspy_copro_skill_gemini.py`
+- ✅ `dspy_engine/compile/compile_dspy_copro_skill_c5_gemini.py`
+- ✅ `dspy_engine/compile/run_compile_c5_factual_acc_gemini.sh`
+- ✅ `dspy_engine/dspy_skill_compile/run_compile_copro_gemini.sh`
+- 🔧 `dspy_engine/compile/run_compile_all_skills.sh` (supports `COMPILE_SCRIPT` override for Gemini compile-all flow)
+
+---
+
+## 9. Git Pull Commands
+
+Use these commands on any clone of this repository to fetch the Gemini updates:
+
+```bash
+cd /path/to/trialchatbot_LAJ
+git checkout main
+git pull origin main
+```
+
+Optional verification:
+
+```bash
+git log --oneline -n 5
+```
+
+Expected Gemini commits include:
+- `f0426e6` Add Gemini COPRO compile scripts and wrappers
+- `637aa9e` Add remaining Gemini scoring runners and run commands
