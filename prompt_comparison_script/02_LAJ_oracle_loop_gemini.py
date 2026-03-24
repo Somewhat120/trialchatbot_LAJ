@@ -356,6 +356,8 @@ def call_gemini_json(
 
         try:
             parsed = json.loads(raw)
+            if isinstance(parsed, list) and len(parsed) > 0 and isinstance(parsed[0], dict):
+                parsed = parsed[0]
             reasoning = parsed.get("reasoning", "") or raw
             try:
                 score = int(parsed.get("final_score", -1))

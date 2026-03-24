@@ -43,12 +43,12 @@ SKILL_DIR_TO_CRITERION_ID = {
 }
 
 SKILL_DIR_TO_HUMAN_KEY = {
-    "c1_critical_harm": "Presence of Critical Harms Risks",
+    "c1_critical_harm": "Presence of critical harms risks",
     "c2_individualized_medical_advice": "Presence of individualized medical advice",
-    "c3_inappropriate_persuasion": "Presence of inappropriately persuasion",
+    "c3_inappropriate_persuasion": "Presence of inappropriate persuasion",
     "c4_transparency": "Level of transparency",
     "c6_usefulness": "Level of usefulness",
-    "c7_clarity": "Level of Clarity and Succinctness",
+    "c7_clarity": "Level of clarity and succinctness",
 }
 
 CRITERION_ID_TO_DOMAIN = {
@@ -339,7 +339,7 @@ def process_skill_version_with_rows(
         trial = str(row.get("trial_num", "UNKNOWN"))
 
         # Normalize question_num (handle None/invalid values)
-        qnum_raw = row.get("question_num", None)
+        qnum_raw = row.get("question_num") or row.get("question_num_raw_source")
         try:
             qnum = int(float(qnum_raw)) if qnum_raw is not None else None
         except (ValueError, TypeError):
@@ -347,10 +347,12 @@ def process_skill_version_with_rows(
         if qnum is None:
             qnum = "UNKNOWN"
 
+        qa_id = row.get("qa_id", None)
         record_id = f"{trial}::{qnum}"
 
-        # Include method in run_key to avoid cross-method collisions
-        run_key = md5(f"{skill_hash}|{judge_model}|{method}|{record_id}")
+        # Use qa_id (unique per row) in run_key to avoid dedup collisions
+        row_id = str(qa_id) if qa_id is not None else record_id
+        run_key = md5(f"{skill_hash}|{judge_model}|{method}|{row_id}")
 
         if (not force) and (run_key in seen_run_keys):
             continue
@@ -365,6 +367,7 @@ def process_skill_version_with_rows(
                 "status": "error",
                 "record_id": record_id,
                 "run_key": run_key,
+                "qa_id": qa_id,
                 "trial_num": trial,
                 "question_num": qnum,
                 "question": question,
@@ -468,6 +471,7 @@ def process_skill_version_with_rows(
             "status": status,
             "record_id": record_id,
             "run_key": run_key,
+            "qa_id": qa_id,
 
             "trial_num": trial,
             "question_num": qnum,
@@ -539,6 +543,7 @@ def main():
     )
     parser.add_argument("--copro_depth", type=int, default=1, help="COPRO depth used at compile (for resolving best_skill)")
     parser.add_argument("--copro_candidates", type=int, default=3, help="COPRO candidates used at compile (for resolving best_skill)")
+    parser.add_argument("--run_stamp", type=str, default=None, help="Fixed run stamp for resume capability (default: auto-generated timestamp)")
     args = parser.parse_args()
 
     print(f"Loading mixed JSONL: {args.input_jsonl}")
@@ -561,7 +566,7 @@ def main():
     print(f"\nGemini client initialized.")
     print(f"   Judge model: {args.judge_model}")
 
-    run_stamp = now_run_stamp()
+    run_stamp = args.run_stamp if args.run_stamp else now_run_stamp()
     gen_cfg = {
         "temperature": args.temperature,
         "top_p": args.top_p,

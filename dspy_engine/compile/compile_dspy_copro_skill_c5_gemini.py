@@ -650,7 +650,7 @@ def main() -> None:
                     depth_step=d,
                     candidate_idx=i,
                     prior_candidates_brief=prior_briefs,
-                    max_output_tokens=max(2048, args.max_judge_output_tokens),
+                    max_output_tokens=max(args.max_skill_tokens, 2048, args.max_judge_output_tokens),
                 )
                 if not rr["ok"]:
                     gen_err = rr["error"]

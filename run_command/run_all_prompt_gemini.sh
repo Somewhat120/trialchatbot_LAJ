@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$WORKSPACE_ROOT"
 
-export PYTHONPATH="$WORKSPACE_ROOT:$PYTHONPATH"
+export PYTHONPATH="$WORKSPACE_ROOT:${PYTHONPATH:-}"
 
 # ============================================================
 # CONFIGURATION
@@ -23,7 +23,7 @@ JUDGE_MODEL="${JUDGE_MODEL:-gemini-3-pro-preview}"
 TEXT_FOLDER="ICF_text_cleaned"
 
 # Token budgets
-MAX_TOKENS="${MAX_TOKENS:-256}"
+MAX_TOKENS="${MAX_TOKENS:-1024}"
 # Input size cap (character-based proxy).
 MAX_INPUT_CHARS="${MAX_INPUT_CHARS:-0}"
 

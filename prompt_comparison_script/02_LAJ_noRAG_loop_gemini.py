@@ -408,7 +408,9 @@ def call_gemini_json(
                 return out
 
             parsed, parse_err = _parse_json_best_effort(raw)
-            if parsed is not None:
+            if isinstance(parsed, list) and len(parsed) > 0 and isinstance(parsed[0], dict):
+                parsed = parsed[0]
+            if parsed is not None and isinstance(parsed, dict):
                 reasoning = parsed.get("reasoning", "") or raw
                 try:
                     score = int(parsed.get("final_score", -1))

@@ -1,0 +1,12 @@
+[project]
+name = "trialchatbot-laj"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.84.0",
+    "dspy>=3.1.3",
+    "google-genai>=1.68.0",
+    "tqdm>=4.67.3",
+]

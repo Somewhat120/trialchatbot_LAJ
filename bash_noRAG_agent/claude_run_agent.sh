@@ -15,12 +15,12 @@ export PYTHONPATH="$WORKSPACE_ROOT:$PYTHONPATH"
 # ============================================================
 # CONFIGURATION (override via env vars if desired)
 # ============================================================
-INPUT_JSONL="${INPUT_JSONL:-data_eval/round1.jsonl}"
-DATASET_ID="${DATASET_ID:-round1_claude_test}"
+INPUT_JSONL="${INPUT_JSONL:-data_eval/test_set0226.jsonl}"
+DATASET_ID="${DATASET_ID:-test_set0226}"
 SKILLS_ROOT="${SKILLS_ROOT:-skills}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-LAJ_score_outputs}"
 KEY_FILE="${KEY_FILE:-prompt_comparison_script/anthropic_key.txt}"
-JUDGE_MODEL="${JUDGE_MODEL:-claude-sonnet-4-20250514}"
+JUDGE_MODEL="${JUDGE_MODEL:-claude-opus-4-6}"
 
 # METHODS: agent | dspy_noopt | dspy_opt_prompt
 METHOD="${METHOD:-agent}"
