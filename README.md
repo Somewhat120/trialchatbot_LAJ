@@ -1,4 +1,4 @@
-# ICON-Bench / LAJ Study Code
+# ICON-Bench 
 
 This repository contains the code accompanying the ICON-Bench study, which evaluates large language model (LLM) chatbots for clinical trial informed-consent question answering and investigates LLM-as-a-judge (LAJ) methods for scalable oversight of patient-facing chatbot responses.
 
