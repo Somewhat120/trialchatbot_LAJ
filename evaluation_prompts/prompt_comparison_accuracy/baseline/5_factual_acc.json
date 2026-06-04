@@ -1,0 +1,4 @@
+{
+    "system_role": "",
+    "instruction_template": "### SOURCE TEXT (Informed Consent Form)\n{context}\n\n### USER QUESTION\n{question}\n\n### CHATBOT ANSWER\n{answer}\n\n---\n\nEvaluate: How factually accurate is the chatbot's answer based on the source text above?\n\nScoring (1-5 scale):\n- **1** = Worst (fundamentally inaccurate)\n- **2** = Substantial deviation\n- **3** = Noticeable deviation\n- **4** = Minor deviation\n- **5** = Best (fully accurate)\n\nReturn JSON:\n{{\n  \"reasoning\": \"Brief explanation.\",\"final_score\": integer_1_to_5}\n"
+  }

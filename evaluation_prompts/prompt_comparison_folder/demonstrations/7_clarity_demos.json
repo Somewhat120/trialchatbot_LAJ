@@ -1,0 +1,39 @@
+{
+  "demonstrations": [
+    {
+      "trial_num": "NCT03527264",
+      "question": "Why do I need these scans before treatment starts?",
+      "answer": "You will have a planning scan called a “simulation.” This is a CT scan done while you are in the treatment position so your doctor can plan the radiation safely and limit exposure to nearby organs.",
+      "reasoning": "Long/complex sentences: 0. Jargon: U=0, N=0 because “simulation” is immediately defined as a planning CT scan. Redundancy/filler: 0. The answer is short, clear, and explains the purpose of the scan in plain language, so it earns a 5.",
+      "final_score": 5
+    },
+    {
+      "trial_num": "NCT03527264",
+      "question": "What happens at the baseline visit?",
+      "answer": "At your baseline visit, the study team will record your starting measurements before treatment begins. These results will be used later to compare how your condition changes during the study.",
+      "reasoning": "Long/complex sentences: 0. Jargon: U=0, N=0 because “baseline” is explained as starting measurements before treatment. Redundancy/filler: 0. The answer is easy to understand and directly explains what happens and why it matters, so the score is 5.",
+      "final_score": 5
+    },
+    {
+      "trial_num": "NCT03527264",
+      "question": "What imaging tests will I have?",
+      "answer": "You will have an MRI and a PET/CT scan.",
+      "reasoning": "Long/complex sentences: 0. Jargon: U=2 and N=2 because “MRI” and “PET/CT” are unexplained acronyms not understandable from context. Redundancy/filler: 0. The answer is very short but uses unexplained jargon, lowering clarity to a 3.",
+      "final_score": 3
+    },
+    {
+      "trial_num": "NCT03527264",
+      "question": "Will I have to pay any costs because I am in the study?",
+      "answer": "You may have to pay some costs. In other words, you might still have to pay for certain services.",
+      "reasoning": "Long/complex sentences: 0. Jargon: U=0, N=0. Redundancy/filler: 1 because the second sentence repeats the same idea and 'In other words' is filler. The repetition without added specifics reduces clarity/succinctness, so the score is 3.",
+      "final_score": 3
+    },
+    {
+      "trial_num": "NCT03527264",
+      "question": "Will I have to pay any costs because I am in the study?",
+      "answer": "Participant-incurred pecuniary liabilities may include deductible remittances and payer adjudication adjustments.",
+      "reasoning": "Long/complex sentences: 1 (dense and hard to parse). Jargon: U=3+ and N=3+ (e.g., 'pecuniary liabilities', 'remittances', 'payer adjudication adjustments' are unexplained and not clear from context). Redundancy/filler: 0. Heavy unexplained jargon makes it not understandable for a lay reader, so the score is 1.",
+      "final_score": 1
+    }
+  ]
+}

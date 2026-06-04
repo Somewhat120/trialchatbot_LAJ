@@ -1,0 +1,20 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "LAJ Likert 1-5 Output v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["reasoning", "final_score"],
+    "properties": {
+      "reasoning": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Brief justification referencing the decision logic."
+      },
+      "final_score": {
+        "type": "integer",
+        "enum": [1, 2, 3, 4, 5],
+        "description": "Likert score (1=lowest, 5=highest) per criterion definition."
+      }
+    }
+  }
+  

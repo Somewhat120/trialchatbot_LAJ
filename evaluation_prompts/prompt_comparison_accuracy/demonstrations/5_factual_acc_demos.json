@@ -1,0 +1,39 @@
+{
+  "demonstrations": [
+    {
+      "trial_num": "NCT01558921",
+      "question": "What is randomization, and can I choose which treatment group I’m in?",
+      "answer": "Randomization means a computer assigns you to a treatment group by chance, like a coin flip, so the groups can be compared fairly. In this study, you cannot choose your group, and neither you nor your doctor can influence which group you are assigned to.",
+      "reasoning": "Question type: MIXED (definition + study-specific choice). The definition of randomization is GENERAL_KNOWLEDGE and is accurate. The claim that the user cannot choose the group is TRIAL_SPECIFIC and is consistent with the ICF (per provided context). MAJOR_ERROR_COUNT=0, CRITICAL_OMISSION_COUNT=0, MISALIGNMENT_PRESENT=false, MISLEADING_PRESENT=false, IMPRECISION_PRESENT=false, so Score 5.",
+      "final_score": 5
+    },
+    {
+      "trial_num": "NCT01558921",
+      "question": "How long will I be followed after surgery?",
+      "answer": "The consent form says you will be followed after the operation for at least five years. It does not guarantee an exact end date beyond that minimum.",
+      "ai_reasoning": "Question type is TRIAL_SPECIFIC. The explicitly requested component is follow-up duration. The answer provides a concrete duration (at least five years) and does not add unsupported specifics. MAJOR_ERROR_COUNT=0; CRITICAL_OMISSION_COUNT=0; MISALIGNMENT_PRESENT=false; MISLEADING_PRESENT=false; IMPRECISION_PRESENT=false. Score 5 applies.",
+      "final_score": 5
+    },
+    {
+      "trial_num": "NCT01558921",
+      "question": "Will I be paid for participating in the study?",
+      "answer": "The consent form does not state that you will be paid for participating. If compensation is available, the study team would need to confirm it, because it is not specified in the document.",
+      "reasoning": "Question type: TRIAL_SPECIFIC. Requested component is whether payment is provided. The answer states the ICF does not specify payment (treated as sufficient when the document is silent) and does not invent details. MAJOR_ERROR_COUNT=0, CRITICAL_OMISSION_COUNT=0, MISALIGNMENT_PRESENT=false, MISLEADING_PRESENT=false, IMPRECISION_PRESENT=false, so Score 5.",
+      "final_score": 5
+    },
+    {
+      "trial_num": "NCT01558921",
+      "question": "Which costs are not covered by the study?",
+      "answer": "In clinical trials, costs vary. Often, routine care like standard doctor visits or scans is billed to you or your insurance, while research-only tests are covered by the sponsor. You should ask the study team for the exact cost details for this study.",
+      "ai_reasoning": "Question type is TRIAL_SPECIFIC (cost coverage for this study). The answer is generic clinical-trial boilerplate and does not provide study-specific coverage details from the consent form. Apply the MISALIGNMENT gate and do not count omissions for the same components. MAJOR_ERROR_COUNT=0; CRITICAL_OMISSION_COUNT=0; MISALIGNMENT_PRESENT=true; MISLEADING_PRESENT=false; IMPRECISION_PRESENT=false. Score 3 applies due to misalignment.",
+      "final_score": 3
+    },
+    {
+      "trial_num": "NCT01558921",
+      "question": "Can I choose which treatment group I receive in this study?",
+      "answer": "Yes. You and your doctor can choose the group you prefer, and you can switch groups later if you change your mind.",
+      "reasoning": "Question type: TRIAL_SPECIFIC. Step 1 triggers because the answer asserts two distinct trial-specific procedural facts that contradict the ICF: (1) the participant/doctor can choose the group, and (2) the participant can switch groups later. MAJOR_ERROR_COUNT=2, so we stop early without counting omissions or imprecision. Score 1 applies.",
+      "final_score": 1
+    }
+  ]
+}

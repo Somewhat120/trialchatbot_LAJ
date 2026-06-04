@@ -1,0 +1,445 @@
+{
+  "qwen3_30b_a3b_instruct_vllm": {
+    "description": "Qwen3-30B-A3B-Instruct-2507 (models/Qwen3-30B-A3B-Instruct-2507) via vLLM OpenAI Chat Completions. Use system+user roles. Content is plain string.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "Qwen3-30B-A3B",
+      "model_type": "Open-weight",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (configured)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  },
+  "medgemma_instruct_vllm": {
+    "description": "MedGemma via vLLM. Use a single user message; merge system_role into user content. Content uses OpenAI typed text list.",
+    "message_style": "user_only",
+    "content_style": "openai_text_list",
+    "merge_system_into_user": true,
+    "publication_metadata": {
+      "model_label": "MedGemma-27B",
+      "model_type": "Medical",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (unavailable)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  },
+  "medgemma_1_5_4b_it_vllm": {
+    "description": "MedGemma-1.5-4B-IT via vLLM. Same format as MedGemma. Use a single user message; merge system_role into user content. Content uses OpenAI typed text list.",
+    "message_style": "user_only",
+    "content_style": "openai_text_list",
+    "merge_system_into_user": true,
+    "publication_metadata": {
+      "model_label": "MedGemma-4B",
+      "model_type": "Medical",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (unavailable)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  },
+  "meditron_qwen25_instruct_vllm": {
+    "description": "Meditron3 (Qwen2.5-based) medical model via vLLM. system+user roles, plain string content.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "Meditron3-14B",
+      "model_type": "Medical",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (unavailable)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  },
+  "qwen3_4b_instruct_vllm": {
+    "description": "Qwen3-4B-Instruct-2507 via vLLM. Same format as Qwen3-30B. system+user roles, plain string content.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "Qwen3-4B",
+      "model_type": "Open-weight",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (configured)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  },
+  "llama3_1_8b_instruct_vllm": {
+    "description": "Llama-3.1-8B-Instruct via vLLM. Llama 3.1 format with <|start_header_id|> tags. system+user roles, plain string content.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "Llama-3.1-8B",
+      "model_type": "Open-weight",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (unavailable)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  },
+  "llama3_med42_8b_vllm": {
+    "description": "Llama3-Med42-8B via vLLM. Llama 3 format; system+user roles, plain string content.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false
+  },
+  "gemma3_12b_it_vllm": {
+    "description": "Gemma-3-12B-IT via vLLM. Same format as MedGemma. Use a single user message; merge system_role into user content. Content uses OpenAI typed text list.",
+    "message_style": "user_only",
+    "content_style": "openai_text_list",
+    "merge_system_into_user": true,
+    "publication_metadata": {
+      "model_label": "Gemma-3-12B",
+      "model_type": "Open-weight",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (unavailable)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  },
+  "qwen2_5_14b_instruct_vllm": {
+    "description": "Qwen2.5-14B-Instruct via vLLM. Same format as Qwen3. system+user roles, plain string content.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "Qwen2.5-14B",
+      "model_type": "Open-weight",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (unavailable)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  },
+  "qwen2_5_72b_instruct_vllm": {
+    "description": "Qwen2.5-72B-Instruct via vLLM. Same format as Qwen3/Qwen2.5 chat. system+user roles, plain string content.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "Qwen2.5-72B",
+      "model_type": "Open-weight",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (unavailable)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  },
+  "baichuan_m2_32b_vllm": {
+    "description": "Baichuan-M2-32B (models/Baichuan-M2-32B) via vLLM. Qwen2-style ChatML (<|im_start|>/<|im_end|>). system+user roles, plain string content. thinking_mode=off by default.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "thinking_mode": "off",
+    "publication_metadata": {
+      "model_label": "Baichuan-M2-32B",
+      "model_type": "Open-weight",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (configured)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  },
+  "meditron_gemma2_9b_vllm": {
+    "description": "Meditron3-Gemma2-9B via vLLM. Gemma format. Use a single user message; merge system_role into user content. Content uses OpenAI typed text list.",
+    "message_style": "user_only",
+    "content_style": "openai_text_list",
+    "merge_system_into_user": true,
+    "publication_metadata": {
+      "model_label": "Meditron3-9B",
+      "model_type": "Medical",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (unavailable)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  },
+  "llama3_3_70b_instruct_vllm": {
+    "description": "Llama-3.3-70B-Instruct via vLLM. system+user roles, plain string content. 128K context per model card.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "Llama-3.3-70B",
+      "model_type": "Open-weight",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (unavailable)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  },
+  "openbio_llama3_70b_vllm": {
+    "description": "Llama3-OpenBioLLM-70B via vLLM. Llama 3 instruct-style chat; system+user roles, plain string content.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "OpenBioLLM-70B",
+      "model_type": "Medical",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (unavailable)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  },
+  "meditron3_70b_vllm": {
+    "description": "Meditron3-70B via vLLM. Foundation model (not instruction-tuned); use user-only prompt with system merged into user.",
+    "message_style": "user_only",
+    "content_style": "string",
+    "merge_system_into_user": true
+  },
+  "openai_gpt5_responses": {
+    "description": "OpenAI Responses API (GPT-5 family). system+user roles with typed input_text content.",
+    "message_style": "system_user",
+    "content_style": "openai_text_list",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "openai/gpt-5-family",
+      "model_type": "Proprietary",
+      "generation_defaults": {
+        "max_output_tokens": 1024,
+        "retry_max_output_tokens": 2048
+      },
+      "temperature_setting": "not_specified",
+      "top_p_setting": "not_specified",
+      "thinking_setting": "reasoning_effort=low",
+      "c5_evidence_access": "Full ICF text",
+      "provider_api_settings": {
+        "api_family": "openai_responses",
+        "structured_output_param": "text.format.type",
+        "structured_output_value": "json_object",
+        "verbosity_param": "text.verbosity",
+        "verbosity_value": "low",
+        "reasoning_param": "reasoning.effort",
+        "reasoning_value": "low",
+        "max_output_tokens_param": "max_output_tokens",
+        "notes": "Use one of the model-specific GPT-5 profiles below for exact model IDs."
+      }
+    }
+  },
+  "openai_gpt5_2_responses": {
+    "description": "OpenAI Responses API for GPT-5.2. system+user roles with typed input_text content.",
+    "message_style": "system_user",
+    "content_style": "openai_text_list",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "openai/gpt-5.2",
+      "model_type": "Proprietary",
+      "generation_defaults": {
+        "max_output_tokens": 1024,
+        "retry_max_output_tokens": 2048
+      },
+      "temperature_setting": "not_specified",
+      "top_p_setting": "not_specified",
+      "thinking_setting": "reasoning_effort=low",
+      "c5_evidence_access": "Full ICF text",
+      "provider_api_settings": {
+        "api_family": "openai_responses",
+        "model_id": "gpt-5.2",
+        "structured_output_param": "text.format.type",
+        "structured_output_value": "json_object",
+        "verbosity_param": "text.verbosity",
+        "verbosity_value": "low",
+        "reasoning_param": "reasoning.effort",
+        "reasoning_value": "low",
+        "max_output_tokens_param": "max_output_tokens"
+      }
+    }
+  },
+  "openai_gpt5_4_responses": {
+    "description": "OpenAI Responses API for GPT-5.4. system+user roles with typed input_text content.",
+    "message_style": "system_user",
+    "content_style": "openai_text_list",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "openai/gpt-5.4",
+      "model_type": "Proprietary",
+      "generation_defaults": {
+        "max_output_tokens": 1024,
+        "retry_max_output_tokens": 2048
+      },
+      "temperature_setting": "not_specified",
+      "top_p_setting": "not_specified",
+      "thinking_setting": "reasoning_effort=low",
+      "c5_evidence_access": "Full ICF text",
+      "provider_api_settings": {
+        "api_family": "openai_responses",
+        "model_id": "gpt-5.4",
+        "structured_output_param": "text.format.type",
+        "structured_output_value": "json_object",
+        "verbosity_param": "text.verbosity",
+        "verbosity_value": "low",
+        "reasoning_param": "reasoning.effort",
+        "reasoning_value": "low",
+        "max_output_tokens_param": "max_output_tokens"
+      }
+    }
+  },
+  "openai_gpt5_mini_responses": {
+    "description": "OpenAI Responses API for GPT-5 mini. system+user roles with typed input_text content.",
+    "message_style": "system_user",
+    "content_style": "openai_text_list",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "openai/gpt-5-mini",
+      "model_type": "Proprietary",
+      "generation_defaults": {
+        "max_output_tokens": 1024,
+        "retry_max_output_tokens": 2048
+      },
+      "temperature_setting": "not_specified",
+      "top_p_setting": "not_specified",
+      "thinking_setting": "reasoning_effort=low",
+      "c5_evidence_access": "Full ICF text",
+      "provider_api_settings": {
+        "api_family": "openai_responses",
+        "model_id": "gpt-5-mini",
+        "structured_output_param": "text.format.type",
+        "structured_output_value": "json_object",
+        "verbosity_param": "text.verbosity",
+        "verbosity_value": "low",
+        "reasoning_param": "reasoning.effort",
+        "reasoning_value": "low",
+        "max_output_tokens_param": "max_output_tokens"
+      }
+    }
+  },
+  "anthropic_claude_messages": {
+    "description": "Anthropic Messages API for Claude Sonnet 4.6. system prompt plus user message, plain string content.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "anthropic/claude-sonnet-4-6",
+      "model_type": "Proprietary",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "top_p_setting": 1.0,
+      "thinking_setting": "Disabled (configured)",
+      "c5_evidence_access": "Full ICF text",
+      "provider_api_settings": {
+        "api_family": "anthropic_messages",
+        "model_id": "claude-sonnet-4-6",
+        "max_tokens_param": "max_tokens",
+        "temperature_param": "temperature",
+        "thinking_disable_param": "thinking.type",
+        "thinking_disable_value": "disabled",
+        "thinking_enable_param": "thinking.type",
+        "thinking_enable_value": "adaptive",
+        "reasoning_depth_param": "output_config.effort",
+        "reasoning_depth_value": "low",
+        "notes": "For Claude Sonnet 4.6, official docs recommend adaptive thinking with output_config.effort. The published LAJ setting disabled thinking."
+      }
+    }
+  },
+  "google_gemini_generate_content": {
+    "description": "Google Gemini API generate_content profile for Gemini 3 Pro Preview. system+user prompt flow, plain string content.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "google/gemini-3-pro-preview",
+      "model_type": "Proprietary",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_output_tokens": 1024,
+        "retry_max_output_tokens": 2048
+      },
+      "top_p_setting": 1.0,
+      "thinking_setting": "thinking_level=low",
+      "c5_evidence_access": "Full ICF text",
+      "provider_api_settings": {
+        "api_family": "google_genai_generate_content",
+        "model_id": "gemini-3-pro-preview",
+        "temperature_param": "temperature",
+        "max_output_tokens_param": "max_output_tokens",
+        "native_thinking_param": "thinking_config.thinking_level",
+        "native_thinking_value": "low",
+        "openai_compat_thinking_param": "extra_body.google.thinking_config.thinking_level",
+        "openai_compat_thinking_value": "low",
+        "notes": "Historical LAJ runs used model_id gemini-3-pro-preview. Current Google docs say gemini-3-pro-preview was discontinued on March 26, 2026 and recommend gemini-3.1-pro-preview for new use."
+      }
+    }
+  },
+  "deepseek_r1_distill_qwen32b_vllm": {
+    "description": "DeepSeek-R1-Distill-Qwen-32B via vLLM. System+user roles, plain string content.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "DeepSeek-R1-32B",
+      "model_type": "Open-weight",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled (unavailable)",
+      "c5_evidence_access": "Retrieved top-5 chunks"
+    }
+  }
+}
