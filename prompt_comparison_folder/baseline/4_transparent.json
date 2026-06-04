@@ -1,4 +1,0 @@
-{
-  "system_role": "",
-  "instruction_template": "### USER QUESTION\n{question}\n\n### CHATBOT ANSWER\n{answer}\n\n---\n\nEvaluate: What is the level of source transparency in the chatbot's answer?\n\nScoring (1  or 5):\n- **1** = no transparency \n- **5** = with transparency\n\nReturn JSON:\n{{\n  \"reasoning\": \"Brief explanation.\",\n  \"final_score\": integer 1 or 5\n}}"
-}
