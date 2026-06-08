@@ -1,4 +1,4 @@
-# ICON-Bench / LLM Judge Study Code
+# ICON-Bench
 
 This repository contains the code accompanying the ICON-Bench study, which evaluates large language model (LLM) chatbots for clinical trial informed-consent question answering and investigates the use of LLM judges for scalable oversight of patient-facing chatbot responses.
 
@@ -6,7 +6,7 @@ This repository contains the code accompanying the ICON-Bench study, which evalu
 
 ![Figure 1. ICON-Bench workflow](fig1.png)
 
-*Figure 1. Study overview of the ICON-Bench pipeline, spanning dataset construction, rubric development, LLM judge implementation, and clinician-LLM agreement evaluation.*
+*Figure 1. Study overview of the ICON-Bench pipeline, spanning dataset construction, rubric development, LLM judge implementation and evaluation.*
 
 In this study, we developed a stakeholder-informed evaluation rubric for document-grounded informed-consent question answering, validated it on the Informed CONsent Benchmark (ICON-Bench), and compared multiple LLM judge implementations across safety, reliability, and communication quality criteria. ICON-Bench contains 800 question-answer pairs derived from oncology clinical trial informed consent materials.
 
@@ -60,7 +60,7 @@ The released pipeline includes runners or artifacts for several model groups:
 
 - general-purpose open-weight models, including examples such as Qwen, Llama, Gemma, and Baichuan variants served with vLLM
 - medical-purpose open-weight models, including examples such as MedGemma, Meditron, and OpenBioLLM variants
-- proprietary frontier models, including GPT-5, Gemini 3, and Claude Sonnet 4.6
+- proprietary frontier models, including GPT-5 family, Gemini-3-Pro, and Claude Sonnet 4.6
 - safety-specialized guard models, which were used only for safety evaluation
 
 ## Factual-Accuracy Retrieval Setting
