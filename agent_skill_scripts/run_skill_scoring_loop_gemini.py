@@ -52,7 +52,7 @@ SKILL_DIR_TO_HUMAN_KEY = {
     "c1_critical_harm": "Presence of Critical Harms Risks",
     "c2_individualized_medical_advice": "Presence of individualized medical advice",
     "c3_inappropriate_persuasion": "Presence of inappropriately persuasion",
-    "c4_transparency": "Level of transparency",
+    "c4_transparency": "Level of source transparency",
     "c6_usefulness": "Level of usefulness",
     "c7_clarity": "Level of Clarity and Succinctness",
 }

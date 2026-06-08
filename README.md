@@ -1,18 +1,18 @@
-# ICON-Bench 
+# ICON-Bench / LLM Judge Study Code
 
-This repository contains the code accompanying the ICON-Bench study, which evaluates large language model (LLM) chatbots for clinical trial informed-consent question answering and investigates LLM-as-a-judge (LAJ) methods for scalable oversight of patient-facing chatbot responses.
+This repository contains the code accompanying the ICON-Bench study, which evaluates large language model (LLM) chatbots for clinical trial informed-consent question answering and investigates the use of LLM judges for scalable oversight of patient-facing chatbot responses.
 
 ## Study Overview
 
-![Figure 1. ICON-Bench workflow](fig1_compress.png)
+![Figure 1. ICON-Bench workflow](fig1.png)
 
 *Figure 1. Study overview of the ICON-Bench pipeline, spanning dataset construction, rubric development, LLM judge implementation, and clinician-LLM agreement evaluation.*
 
-In this study, we developed a stakeholder-informed evaluation rubric for document-grounded informed-consent question answering, validated it on the Informed CONsent Benchmark (ICON-Bench), and compared multiple LAJ implementations across safety, reliability, and communication quality criteria. ICON-Bench contains 800 question-answer pairs derived from oncology clinical trial informed consent materials.
+In this study, we developed a stakeholder-informed evaluation rubric for document-grounded informed-consent question answering, validated it on the Informed CONsent Benchmark (ICON-Bench), and compared multiple LLM judge implementations across safety, reliability, and communication quality criteria. ICON-Bench contains 800 question-answer pairs derived from oncology clinical trial informed consent materials.
 
-## Overall LAJ Performance
+## Overall LLM Judge Performance
 
-![Figure 2. Overall LLM judge performance](fig2_radar.png)
+![Figure 2. Overall LLM judge performance](fig2.png)
 
 *Figure 2. Overall LLM judge performance across the seven evaluation criteria under each model's best overall configuration.*
 
@@ -35,7 +35,7 @@ The repository is organized around the main stages of the study workflow:
 - `preprocess/`: converts informed consent form (ICF) PDFs into Markdown-formatted text and removes recurring structural noise.
 - `dataset_construction/`: builds question-answer evaluation materials and constructs the retrieval index used for factual-accuracy experiments.
 - `evaluation_prompts/`: stores prompt templates and demonstration files for prompt-based judge evaluation.
-- `prompt_evaluation_scripts/`: runs prompt-based LAJ scoring workflows, including no-RAG, oracle, and inline-RAG evaluation.
+- `prompt_evaluation_scripts/`: runs prompt-based LLM judge scoring workflows, including no-RAG, oracle, and inline-RAG evaluation.
 - `agent_skill_scripts/`: runs skill-based judge evaluation workflows across supported backends.
 - `judge_skills/`: contains criterion-specific skill files used in agent-style evaluation.
 - `dspy_engine/`: contains DSPy-based optimization and inference utilities, together with final compiled skill artifacts.
@@ -65,7 +65,7 @@ The released pipeline includes runners or artifacts for several model groups:
 
 ## Factual-Accuracy Retrieval Setting
 
-For factual-accuracy evaluation, open-weight models used retrieval-augmented generation (RAG) to accommodate context-length constraints. The retrieval workflow combines dense retrieval, BM25-based sparse retrieval, and reranking before passing supporting evidence to the LAJ judge.
+For factual-accuracy evaluation, open-weight models used retrieval-augmented generation (RAG) to accommodate context-length constraints. The retrieval workflow combines dense retrieval, BM25-based sparse retrieval, and reranking before passing supporting evidence to the LLM judge.
 
 ## Release Notes
 

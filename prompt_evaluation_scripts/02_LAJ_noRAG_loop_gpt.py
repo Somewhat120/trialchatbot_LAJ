@@ -54,10 +54,10 @@ TEST_MODE = False
 # Mapping
 # ======================================================
 FILENAME_TO_HUMAN_KEY = {
-    "1_critical_harm": "Presence of critical harms risks",
+    "1_critical_harm": "Presence of critical harms",
     "2_individualized_advice": "Presence of individualized medical advice",
     "3_persuasion": "Presence of inappropriate persuasion",
-    "4_transparent": "Level of transparency",
+    "4_transparent": "Level of source transparency",
     "6_useful": "Level of usefulness",
     "7_clarity": "Level of clarity and succinctness",
 }
