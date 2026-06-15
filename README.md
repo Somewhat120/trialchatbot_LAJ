@@ -1,14 +1,14 @@
 # ICON-Bench
 
-This repository contains the code accompanying the ICON-Bench study, which evaluates large language model (LLM) chatbots for clinical trial informed-consent question answering and investigates the use of LLM judges for scalable oversight of patient-facing chatbot responses.
+ICON-Bench is an evaluation framework for large language model (LLM) chatbots in clinical trial informed consent question answering, comprising a stakeholder-informed rubric, 800 QA pairs with clinician reference ratings spanning trial-specific, general trial knowledge, and mixed questions, and investigates the use of LLM judges for scalable oversight of patient-facing chatbot responses.
 
 ## Study Overview
 
 ![Figure 1. ICON-Bench workflow](fig1.png)
 
-*Figure 1. Study overview of the ICON-Bench pipeline, spanning dataset construction, rubric development, LLM judge implementation and evaluation.*
+*Figure 1. Study overview.*
 
-In this study, we developed a stakeholder-informed evaluation rubric for document-grounded informed-consent question answering, validated it on the Informed CONsent Benchmark (ICON-Bench), and compared multiple LLM judge implementations across safety, reliability, and communication quality criteria. ICON-Bench contains 800 question-answer pairs derived from oncology clinical trial informed consent materials.
+Figure 1 illustrates the ICON-Bench pipeline, spanning dataset construction from oncology clinical trial informed consent forms, rubric development with stakeholder input, and LLM judge implementation and evaluation.
 
 ## Overall LLM Judge Performance
 
@@ -28,45 +28,44 @@ The released evaluation framework scores chatbot answers across seven criteria:
 6. Usefulness
 7. Clarity and succinctness
 
-## Repository Overview
+## Repository Structure
 
 The repository is organized around the main stages of the study workflow:
 
-- `preprocess/`: converts informed consent form (ICF) PDFs into Markdown-formatted text and removes recurring structural noise.
-- `dataset_construction/`: builds question-answer evaluation materials and constructs the retrieval index used for factual-accuracy experiments.
-- `evaluation_prompts/`: stores prompt templates and demonstration files for prompt-based judge evaluation.
-- `prompt_evaluation_scripts/`: runs prompt-based LLM judge scoring workflows, including no-RAG, oracle, and inline-RAG evaluation.
-- `agent_skill_scripts/`: runs skill-based judge evaluation workflows across supported backends.
-- `judge_skills/`: contains criterion-specific skill files used in agent-style evaluation.
-- `dspy_engine/`: contains DSPy-based optimization and inference utilities, together with final compiled skill artifacts.
-- `metrics_evaluation_scripts/`: computes agreement metrics and summary evaluation tables.
-- `score_postprocessing_scripts/`: performs score normalization, updates, and release-oriented cleaning steps.
-- `model_configs/` and `output_schemas/`: store shared model-profile settings and structured output schemas.
-- `data/`: contains publication-facing evaluation data released with the repository.
+- `preprocess/`: Informed consent form preprocessing.
+- `dataset_construction/`: QA dataset construction and retrieval index building.
+- `evaluation_prompts/`: prompt templates and demonstrations for prompt-based judge evaluation.
+- `prompt_evaluation_scripts/`: prompt-based LLM judge scoring workflows.
+- `agent_skill_scripts/`: skill-based judge evaluation workflows.
+- `judge_skills/`: criterion-specific judge skill files.
+- `dspy_engine/`: DSPy-based optimization, inference utilities, and compiled skill artifacts.
+- `metrics_evaluation_scripts/`: agreement metrics and summary evaluation tables.
+- `score_postprocessing_scripts/`: score normalization and postprocessing.
+- `model_configs/` and `output_schemas/`: shared model configurations and structured output schemas.
+- `data/`: evaluation data released with the study.
 
-## Judge Variants Examined
+## Judge Configurations
 
 The study compares multiple judge configurations, including:
 
-- prompts that provide only the criterion name and score range
-- prompts that provide the criterion definition and basic scoring rules
-- prompts that provide rubric-aligned stepwise scoring procedures
-- human-authored criterion-specific judge skills
-- DSPy-revised judge skills optimized from those human-authored skills
+- Baseline prompts (criterion name and score range only)
+- Definition-only prompts (criterion definition and basic scoring rules)
+- Rubric-aligned stepwise prompts (step-by-step scoring decision procedures)
+- Human-authored criterion-specific judge skills
+- LLM-adapted judge skills from human-authored skills through DSPy
 
 ## Model Families
 
-The released pipeline includes runners or artifacts for several model groups:
+We evaluated models spanning three categories:
 
-- general-purpose open-weight models, including examples such as Qwen, Llama, Gemma, and Baichuan variants served with vLLM
-- medical-purpose open-weight models, including examples such as MedGemma, Meditron, and OpenBioLLM variants
-- proprietary frontier models, including GPT-5 family, Gemini-3-Pro, and Claude Sonnet 4.6
-- safety-specialized guard models, which were used only for safety evaluation
+- General-purpose and medical-purpose open-weight models, including Qwen, Llama, Gemma, Baichuan, MedGemma, Meditron, and OpenBioLLM variants
+- Proprietary frontier models, including GPT-5 family, Gemini-3-Pro, and Claude Sonnet 4.6
+- Safety-specialized guard models, used only for safety evaluation
 
-## Factual-Accuracy Retrieval Setting
+## Factual Accuracy Retrieval Setting
 
-For factual-accuracy evaluation, open-weight models used retrieval-augmented generation (RAG) to accommodate context-length constraints. The retrieval workflow combines dense retrieval, BM25-based sparse retrieval, and reranking before passing supporting evidence to the LLM judge.
+For factual accuracy evaluation, which uniquely requires source text (informed consent form) input for trial-linked questions, open-weight models were evaluated under a retrieval-augmented generation (RAG) setting to accommodate context-length limitations.
 
-## Release Notes
+## Data Availability
 
-A peer-review subset of the evaluation data is available in `data/`. The full evaluation dataset will be released after publication acceptance.
+A subset of the evaluation data is provided in `data/` . The full dataset will be released upon acceptance.
