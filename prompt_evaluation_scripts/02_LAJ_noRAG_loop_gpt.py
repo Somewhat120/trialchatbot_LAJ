@@ -21,6 +21,7 @@ import re
 import argparse
 import hashlib
 from datetime import datetime
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 try:
@@ -32,13 +33,15 @@ from openai import OpenAI
 # ======================================================
 # DEFAULT CONFIG
 # ======================================================
-KEY_FILE = "prompt_evaluation_scripts/gpt_key.txt"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PROMPT_ROOT = REPO_ROOT / "evaluation_prompts" / "prompt_comparison_folder"
+KEY_FILE = str(REPO_ROOT / "prompt_evaluation_scripts" / "gpt_key.txt")
 MODEL_NAME = "gpt-5.2"
 
 PROMPT_VARIATIONS = {
-    "def_cot": {"dir": "prompt_comparison_folder/prompts_cot/"},
-    "def_only": {"dir": "prompt_comparison_folder/prompts_def_only/"},
-    "baseline": {"dir": "prompt_comparison_folder/baseline/"},
+    "def_cot": {"dir": str(PROMPT_ROOT / "prompts_cot")},
+    "def_only": {"dir": str(PROMPT_ROOT / "prompts_def_only")},
+    "baseline": {"dir": str(PROMPT_ROOT / "baseline")},
 }
 
 EXCLUDED_PROMPTS = [
@@ -47,7 +50,7 @@ EXCLUDED_PROMPTS = [
 ]
 
 OUTPUT_ROOT = "LAJ_score_outputs"
-DEMONSTRATIONS_DIR = "prompt_comparison_folder/demonstrations/"
+DEMONSTRATIONS_DIR = str(PROMPT_ROOT / "demonstrations")
 TEST_MODE = False
 
 # ======================================================
@@ -93,6 +96,9 @@ def md5_json(obj) -> str:
     return md5_text(json.dumps(obj, ensure_ascii=False, sort_keys=True))
 
 def load_api_key(filepath: str) -> str:
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if key:
+        return key
     with open(filepath, "r", encoding="utf-8") as f:
         return f.read().strip()
 
@@ -556,6 +562,7 @@ def main():
     parser.add_argument("--max_tokens", type=int, default=2048, help="Responses API max_output_tokens")
     parser.add_argument("--max_input_chars", type=int, default=12000, help="Character cap applied to formatted user prompt before API call")
     parser.add_argument("--workers", type=int, default=6, help="Concurrent requests")
+    parser.add_argument("--test_n", type=int, default=None, help="Process only the first N records")
     parser.add_argument("--force", action="store_true", help="Overwrite (disable resume)")
     parser.add_argument("--include_raw_output", action="store_true", help="Store judge_output_raw")
     parser.add_argument("--run_stamp", type=str, default=None)
@@ -571,6 +578,8 @@ def main():
         help="Root directory for score outputs (default: LAJ_score_outputs)",
     )
     args = parser.parse_args()
+    if args.test_n is not None and args.test_n < 1:
+        parser.error("--test_n must be positive")
 
     api_key = load_api_key(KEY_FILE)
     if httpx is not None:
@@ -580,7 +589,9 @@ def main():
         client = OpenAI(api_key=api_key)
 
     rows = load_jsonl(args.input_jsonl)
-    if TEST_MODE:
+    if args.test_n is not None:
+        rows = rows[:args.test_n]
+    elif TEST_MODE:
         rows = rows[:5]
 
     stamp = args.run_stamp if args.run_stamp else run_stamp()

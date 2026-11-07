@@ -1,4 +1,107 @@
 {
+  "gpt_oss_safeguard_20b": {
+    "description": "GPT-OSS-Safeguard-20B. Use the independent safety prompt runner for C1-C3.",
+    "model_id": "openai/gpt-oss-safeguard-20b",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "safety_adapter": {
+      "output_format": "json",
+      "reasoning_effort": "low"
+    },
+    "publication_metadata": {
+      "model_label": "GPT-OSS-Safeguard-20B",
+      "model_type": "Safety-specialized",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "do_sample": false,
+        "seed": 0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "reasoning_effort=low",
+      "model_url": "https://huggingface.co/openai/gpt-oss-safeguard-20b"
+    }
+  },
+  "gpt_oss_safeguard_120b": {
+    "description": "GPT-OSS-Safeguard-120B. Use the independent safety prompt runner for C1-C3.",
+    "model_id": "openai/gpt-oss-safeguard-120b",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "safety_adapter": {
+      "output_format": "json",
+      "reasoning_effort": "low"
+    },
+    "publication_metadata": {
+      "model_label": "GPT-OSS-Safeguard-120B",
+      "model_type": "Safety-specialized",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "do_sample": false,
+        "seed": 0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "reasoning_effort=low",
+      "model_url": "https://huggingface.co/openai/gpt-oss-safeguard-120b"
+    }
+  },
+  "llama_guard_2_8b": {
+    "description": "Llama Guard 2 8B. Use the independent safety prompt runner for C1-C3.",
+    "model_id": "meta-llama/Meta-Llama-Guard-2-8B",
+    "message_style": "user_only",
+    "content_style": "string",
+    "merge_system_into_user": true,
+    "safety_adapter": {
+      "output_format": "label",
+      "prompt_template": "[INST] {system}\n\n{user} [/INST]",
+      "add_special_tokens": true
+    },
+    "publication_metadata": {
+      "model_label": "Llama-Guard-2-8B",
+      "model_type": "Safety-specialized",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "do_sample": false,
+        "seed": 0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Not applicable",
+      "model_url": "https://huggingface.co/meta-llama/Meta-Llama-Guard-2-8B"
+    }
+  },
+  "qwen3guard_gen_8b": {
+    "description": "Qwen3Guard-Gen-8B. Use the independent safety prompt runner for C1-C3.",
+    "model_id": "Qwen/Qwen3Guard-Gen-8B",
+    "message_style": "user_only",
+    "content_style": "string",
+    "merge_system_into_user": true,
+    "safety_adapter": {
+      "output_format": "safety_label",
+      "prompt_template": "<|im_start|>user\n{system}\n\n{user}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n",
+      "add_special_tokens": false,
+      "controversial_score": 1
+    },
+    "publication_metadata": {
+      "model_label": "Qwen3Guard-Gen-8B",
+      "model_type": "Safety-specialized",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "do_sample": false,
+        "seed": 0,
+        "max_tokens": 1024,
+        "retry_max_tokens": 2048
+      },
+      "thinking_setting": "Disabled in prompt template",
+      "model_url": "https://huggingface.co/Qwen/Qwen3Guard-Gen-8B"
+    }
+  },
   "qwen3_30b_a3b_instruct_vllm": {
     "description": "Qwen3-30B-A3B-Instruct-2507 (models/Qwen3-30B-A3B-Instruct-2507) via vLLM OpenAI Chat Completions. Use system+user roles. Content is plain string.",
     "message_style": "system_user",
@@ -14,7 +117,8 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (configured)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507"
     }
   },
   "medgemma_instruct_vllm": {
@@ -32,7 +136,8 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (unavailable)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/google/medgemma-27b-it"
     }
   },
   "medgemma_1_5_4b_it_vllm": {
@@ -50,11 +155,13 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (unavailable)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/google/medgemma-1.5-4b-it"
     }
   },
   "meditron_qwen25_instruct_vllm": {
     "description": "Meditron3 (Qwen2.5-based) medical model via vLLM. system+user roles, plain string content.",
+    "model_id": "EPFLiGHT/Meditron3-Qwen2.5-14B",
     "message_style": "system_user",
     "content_style": "string",
     "merge_system_into_user": false,
@@ -68,7 +175,8 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (unavailable)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/EPFLiGHT/Meditron3-Qwen2.5-14B"
     }
   },
   "qwen3_4b_instruct_vllm": {
@@ -86,7 +194,8 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (configured)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507"
     }
   },
   "llama3_1_8b_instruct_vllm": {
@@ -104,14 +213,18 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (unavailable)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct"
     }
   },
   "llama3_med42_8b_vllm": {
     "description": "Llama3-Med42-8B via vLLM. Llama 3 format; system+user roles, plain string content.",
     "message_style": "system_user",
     "content_style": "string",
-    "merge_system_into_user": false
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_url": "https://huggingface.co/m42-health/Llama3-Med42-8B"
+    }
   },
   "gemma3_12b_it_vllm": {
     "description": "Gemma-3-12B-IT via vLLM. Same format as MedGemma. Use a single user message; merge system_role into user content. Content uses OpenAI typed text list.",
@@ -128,7 +241,8 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (unavailable)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/google/gemma-3-12b-it"
     }
   },
   "qwen2_5_14b_instruct_vllm": {
@@ -146,7 +260,8 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (unavailable)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/Qwen/Qwen2.5-14B-Instruct"
     }
   },
   "qwen2_5_72b_instruct_vllm": {
@@ -164,7 +279,8 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (unavailable)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/Qwen/Qwen2.5-72B-Instruct"
     }
   },
   "baichuan_m2_32b_vllm": {
@@ -183,11 +299,13 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (configured)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/baichuan-inc/Baichuan-M2-32B"
     }
   },
   "meditron_gemma2_9b_vllm": {
     "description": "Meditron3-Gemma2-9B via vLLM. Gemma format. Use a single user message; merge system_role into user content. Content uses OpenAI typed text list.",
+    "model_id": "EPFLiGHT/Meditron3-Gemma2-9B",
     "message_style": "user_only",
     "content_style": "openai_text_list",
     "merge_system_into_user": true,
@@ -201,7 +319,8 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (unavailable)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/EPFLiGHT/Meditron3-Gemma2-9B"
     }
   },
   "llama3_3_70b_instruct_vllm": {
@@ -219,7 +338,8 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (unavailable)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct"
     }
   },
   "openbio_llama3_70b_vllm": {
@@ -237,14 +357,19 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (unavailable)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/aaditya/Llama3-OpenBioLLM-70B"
     }
   },
   "meditron3_70b_vllm": {
     "description": "Meditron3-70B via vLLM. Foundation model (not instruction-tuned); use user-only prompt with system merged into user.",
+    "model_id": "EPFLiGHT/Meditron3-70B",
     "message_style": "user_only",
     "content_style": "string",
-    "merge_system_into_user": true
+    "merge_system_into_user": true,
+    "publication_metadata": {
+      "model_url": "https://huggingface.co/EPFLiGHT/Meditron3-70B"
+    }
   },
   "openai_gpt5_responses": {
     "description": "OpenAI Responses API (GPT-5 family). system+user roles with typed input_text content.",
@@ -272,7 +397,8 @@
         "reasoning_value": "low",
         "max_output_tokens_param": "max_output_tokens",
         "notes": "Use one of the model-specific GPT-5 profiles below for exact model IDs."
-      }
+      },
+      "model_url": "https://developers.openai.com/api/docs/models"
     }
   },
   "openai_gpt5_2_responses": {
@@ -301,7 +427,8 @@
         "reasoning_param": "reasoning.effort",
         "reasoning_value": "low",
         "max_output_tokens_param": "max_output_tokens"
-      }
+      },
+      "model_url": "https://developers.openai.com/api/docs/models/gpt-5.2"
     }
   },
   "openai_gpt5_4_responses": {
@@ -330,7 +457,8 @@
         "reasoning_param": "reasoning.effort",
         "reasoning_value": "low",
         "max_output_tokens_param": "max_output_tokens"
-      }
+      },
+      "model_url": "https://developers.openai.com/api/docs/models/gpt-5.4"
     }
   },
   "openai_gpt5_mini_responses": {
@@ -359,7 +487,8 @@
         "reasoning_param": "reasoning.effort",
         "reasoning_value": "low",
         "max_output_tokens_param": "max_output_tokens"
-      }
+      },
+      "model_url": "https://developers.openai.com/api/docs/models/gpt-5-mini"
     }
   },
   "anthropic_claude_messages": {
@@ -391,11 +520,12 @@
         "reasoning_depth_param": "output_config.effort",
         "reasoning_depth_value": "low",
         "notes": "For Claude Sonnet 4.6, official docs recommend adaptive thinking with output_config.effort. The published LAJ setting disabled thinking."
-      }
+      },
+      "model_url": "https://platform.claude.com/docs/en/models/sonnet-4-6/overview"
     }
   },
   "google_gemini_generate_content": {
-    "description": "Google Gemini API generate_content profile for Gemini 3 Pro Preview. system+user prompt flow, plain string content.",
+    "description": "DEPRECATED: Google Gemini API generate_content profile for Gemini 3 Pro Preview. Retained for historical LAJ runs; use google_gemini_3_1_pro_generate_content for Gemini 3.1 Pro Preview. system+user prompt flow, plain string content.",
     "message_style": "system_user",
     "content_style": "string",
     "merge_system_into_user": false,
@@ -420,8 +550,40 @@
         "native_thinking_value": "low",
         "openai_compat_thinking_param": "extra_body.google.thinking_config.thinking_level",
         "openai_compat_thinking_value": "low",
-        "notes": "Historical LAJ runs used model_id gemini-3-pro-preview. Current Google docs say gemini-3-pro-preview was discontinued on March 26, 2026 and recommend gemini-3.1-pro-preview for new use."
-      }
+        "notes": "Historical LAJ runs used model_id gemini-3-pro-preview. This model is deprecated; Google lists gemini-3.1-pro-preview as its replacement."
+      },
+      "model_url": "https://ai.google.dev/gemini-api/docs/models/gemini-3-pro-preview"
+    }
+  },
+  "google_gemini_3_1_pro_generate_content": {
+    "description": "Google Gemini API generate_content profile for Gemini 3.1 Pro Preview. Same settings as the historical Gemini 3 Pro Preview profile. system+user prompt flow, plain string content.",
+    "message_style": "system_user",
+    "content_style": "string",
+    "merge_system_into_user": false,
+    "publication_metadata": {
+      "model_label": "google/gemini-3.1-pro-preview",
+      "model_type": "Proprietary",
+      "generation_defaults": {
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_output_tokens": 1024,
+        "retry_max_output_tokens": 2048
+      },
+      "top_p_setting": 1.0,
+      "thinking_setting": "thinking_level=low",
+      "c5_evidence_access": "Full ICF text",
+      "provider_api_settings": {
+        "api_family": "google_genai_generate_content",
+        "model_id": "gemini-3.1-pro-preview",
+        "temperature_param": "temperature",
+        "max_output_tokens_param": "max_output_tokens",
+        "native_thinking_param": "thinking_config.thinking_level",
+        "native_thinking_value": "low",
+        "openai_compat_thinking_param": "extra_body.google.thinking_config.thinking_level",
+        "openai_compat_thinking_value": "low",
+        "notes": "Uses the same settings as the historical gemini-3-pro-preview profile. Historical LAJ runs used Gemini 3 Pro Preview, not Gemini 3.1 Pro Preview."
+      },
+      "model_url": "https://ai.google.dev/gemini-api/docs/models/gemini-3.1-pro-preview"
     }
   },
   "deepseek_r1_distill_qwen32b_vllm": {
@@ -439,7 +601,8 @@
         "retry_max_tokens": 2048
       },
       "thinking_setting": "Disabled (unavailable)",
-      "c5_evidence_access": "Retrieved top-5 chunks"
+      "c5_evidence_access": "Retrieved top-5 chunks",
+      "model_url": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
     }
   }
 }

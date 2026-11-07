@@ -1,3 +1,4 @@
+# Python 3.12.14
 anthropic==0.71.0
 chromadb==1.4.0
 dspy==3.1.2
@@ -7,10 +8,14 @@ langchain-chroma==1.1.0
 langchain-core==1.2.6
 langchain-huggingface==1.2.0
 langchain-text-splitters==1.1.0
-numpy==2.2.6
+matplotlib==3.10.7
+numpy==2.4.6
 openai==2.14.0
 pandas==2.3.3
+pingouin==0.7.0
 rank-bm25==0.2.2
+scikit-learn==1.9.1
+scipy==1.17.0
 sentence-transformers==5.2.3
 torch==2.9.1
 transformers==4.57.6
