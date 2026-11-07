@@ -97,15 +97,19 @@ The manuscript evaluates 19 general-purpose and medical-purpose judges, plus fou
 
 Model profiles are in [model_configs/model_profiles.json](model_configs/model_profiles.json). The older Gemini 3 Pro profile is retained for historical runs; the current Gemini profile is `google_gemini_3_1_pro_generate_content`.
 
-## Safety Model Evaluation
+## Running Evaluations
 
-The default input is `data/evaluation_subset.jsonl`. Use `--input_jsonl PATH` for another dataset, `--prompt_variation baseline`, `def_only`, or `def_cot` to select the prompt, `--fewshot` to include demonstrations, and `--criterion C1`, `C2`, or `C3` to select one criterion. The default is stepwise zero-shot evaluation of all three criteria.
+Use `data/evaluation_subset.jsonl` or another JSONL dataset with the same fields. Run scripts from the repository root and provide the dataset using `--input_jsonl PATH`. Prompt-based runners are in [prompt_evaluation_scripts/](prompt_evaluation_scripts/); skill-based and DSPy evaluation runners are in [agent_skill_scripts/](agent_skill_scripts/).
 
-For inference, supply `--vllm_api_base URL` and `--model NAME` for the running server. Alternatively, use `--backend transformers --model MODEL_PATH` for local weights. `--test_n 5` limits the run to five input records; `--output_dir PATH` directs results to a chosen folder.
+Select the model, criterion, and prompt or skill configuration using the chosen runner's options. Provider API runs require API credentials; vLLM runs require the server URL and served model name.
 
-Current defaults are temperature 0, top-p 1, seed 0, and 1,024 output tokens. Local generation disables sampling. GPT-OSS profiles use low reasoning effort. The runner allows two retries with a 2,048-token limit; `--max_retries 3` selects three retries. Effective settings are saved with each result.
+Use `--help` to see a runner's input, model, generation, and output options. For example:
 
-Results are JSONL records containing `ai_score`, `ai_reasoning`, and `judge_output_raw`. Native labels are converted to 0 or 1; Qwen's `Controversial` label maps to 1. Unreadable or truncated responses are recorded as errors with score -1.
+```bash
+python prompt_evaluation_scripts/02_LAJ_noRAG_loop_gpt.py --help
+```
+
+Evaluation results are saved as JSONL records containing scores (`ai_score`) and rationales (`ai_reasoning`).
 
 ## Factual Accuracy Retrieval Setting
 
