@@ -95,32 +95,17 @@ The manuscript evaluates 19 general-purpose and medical-purpose judges, plus fou
 - Proprietary models: GPT-5.4, GPT-5.2, GPT-5-mini, Gemini-3.1-Pro, and Claude-Sonnet-4.6
 - Safety-specialized models: GPT-OSS-Safeguard-20B, GPT-OSS-Safeguard-120B, Llama-Guard-2-8B, and Qwen3Guard-Gen-8B, evaluated only on C1-C3
 
-Model profiles are in [model_configs/model_profiles.json](model_configs/model_profiles.json). The older Gemini 3 Pro profile is retained for historical runs; the current Gemini profile is `google_gemini_3_1_pro_generate_content`. Model names and generation arguments must also be selected in the runner being used; adding a profile does not change an existing runner's defaults.
+Model profiles are in [model_configs/model_profiles.json](model_configs/model_profiles.json). The older Gemini 3 Pro profile is retained for historical runs; the current Gemini profile is `google_gemini_3_1_pro_generate_content`.
 
 ## Safety Model Evaluation
 
-[02_LAJ_safety.py](prompt_evaluation_scripts/02_LAJ_safety.py) is an independent C1-C3 runner. It reads the existing criterion prompts and demonstrations, preserves their scoring rules, and adapts the requested output format where a model uses safety labels. Existing prompt, agent-skill, and DSPy runners are separate.
-
-| Profile | Model ID |
-|---|---|
-| `gpt_oss_safeguard_20b` | `openai/gpt-oss-safeguard-20b` |
-| `gpt_oss_safeguard_120b` | `openai/gpt-oss-safeguard-120b` |
-| `llama_guard_2_8b` | `meta-llama/Meta-Llama-Guard-2-8B` |
-| `qwen3guard_gen_8b` | `Qwen/Qwen3Guard-Gen-8B` |
-
-From the repository root, inspect a prepared request without loading or calling a model:
-
-```bash
-python prompt_evaluation_scripts/02_LAJ_safety.py --model_profile qwen3guard_gen_8b --dry_run
-```
-
 The default input is `data/evaluation_subset.jsonl`. Use `--input_jsonl PATH` for another dataset, `--prompt_variation baseline`, `def_only`, or `def_cot` to select the prompt, `--fewshot` to include demonstrations, and `--criterion C1`, `C2`, or `C3` to select one criterion. The default is stepwise zero-shot evaluation of all three criteria.
 
-For inference, remove `--dry_run` and supply `--vllm_api_base URL` and `--model NAME` for the running server. Alternatively, use `--backend transformers --model MODEL_PATH` for local weights. `--test_n 5` limits the run to five input records; `--output_dir PATH` directs results to a chosen folder.
+For inference, supply `--vllm_api_base URL` and `--model NAME` for the running server. Alternatively, use `--backend transformers --model MODEL_PATH` for local weights. `--test_n 5` limits the run to five input records; `--output_dir PATH` directs results to a chosen folder.
 
 Current defaults are temperature 0, top-p 1, seed 0, and 1,024 output tokens. Local generation disables sampling. GPT-OSS profiles use low reasoning effort. The runner allows two retries with a 2,048-token limit; `--max_retries 3` selects three retries. Effective settings are saved with each result.
 
-Results are JSONL records containing `ai_score`, `ai_reasoning`, and `judge_output_raw`. Native labels are converted to 0 or 1; Qwen's `Controversial` label maps to 1. A missing rationale remains empty. Unreadable or truncated responses are recorded as errors with score -1. Format and call handling have been checked with simulated responses; this does not validate model accuracy or reproduce the manuscript's historical runs.
+Results are JSONL records containing `ai_score`, `ai_reasoning`, and `judge_output_raw`. Native labels are converted to 0 or 1; Qwen's `Controversial` label maps to 1. Unreadable or truncated responses are recorded as errors with score -1.
 
 ## Factual Accuracy Retrieval Setting
 
@@ -128,4 +113,4 @@ For factual accuracy evaluation, which uniquely requires source text (informed c
 
 ## Data Availability
 
-A 200-record evaluation subset is provided in `data/` in JSONL format, with questions, answers, trial and category metadata, and clinician reference scores. See [data/README.md](data/README.md) for its composition and fields. The full dataset and supporting materials will be released upon publication.
+A subset of the evaluation dataset is provided in `data/` in JSONL format, with questions, answers, trial and category metadata, and clinician reference scores. See [data/README.md](data/README.md) for its composition and fields. The full dataset and supporting materials will be released upon publication.
