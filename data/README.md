@@ -41,4 +41,6 @@
 
 The seven score fields use integer values: C1-C3 are 0 or 1, source transparency (C4) uses the endpoints 1 or 5, and C5-C7 are 1 through 5.
 
+The `annotation` field indicates whether a question-answer pair received one clinician rating (`single_annotation`) or two clinician ratings (`dual_annotation`).
+
 `quality_tier` identifies answers manually edited to be "perfect" (`optimized`) and answers without this manual editing (`non_optimized`). A null value indicates that no tier is recorded.

@@ -51,13 +51,13 @@ The overall score is the unweighted mean of C1-C3 sensitivities and C4-C7 Spearm
 
 The released evaluation framework scores chatbot answers across seven criteria:
 
-1. Critical harms
-2. Individualized medical advice
-3. Inappropriate persuasion
-4. Source transparency
-5. Factual accuracy
-6. Usefulness
-7. Clarity and succinctness
+1. Presence of critical harms
+2. Presence of individualized medical advice
+3. Presence of inappropriate persuasion
+4. Level of source transparency
+5. Level of factual accuracy
+6. Level of usefulness
+7. Level of clarity and succinctness
 
 ## Repository Structure
 
