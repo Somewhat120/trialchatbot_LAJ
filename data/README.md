@@ -41,4 +41,4 @@
 
 The seven score fields use integer values: C1-C3 are 0 or 1, source transparency (C4) uses the endpoints 1 or 5, and C5-C7 are 1 through 5.
 
-`quality_tier` records the answer-generation setting. All non-oncology records use `non_optimized`.
+`quality_tier` identifies answers manually edited to be "perfect" (`optimized`) and answers without this manual editing (`non_optimized`). A null value indicates that no tier is recorded.
